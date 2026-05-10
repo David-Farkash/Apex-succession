@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
+  <text x="120" y="34" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" font-weight="400" fill="#6b6b67" letter-spacing="3">— THE —</text>
+  <text x="120" y="74" text-anchor="middle" font-family="Georgia, serif" font-size="34" font-weight="500" fill="#0a1f15" letter-spacing="0.08em">SUCCESSION</text>
+  <text x="120" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" font-weight="400" fill="#6b6b67" letter-spacing="3">— GROUP —</text>
+  <line x1="100" y1="118" x2="140" y2="118" stroke="#2d4a3a" stroke-width="0.5"/>
+  <text x="120" y="132" text-anchor="middle" font-family="Georgia, serif" font-size="10" font-weight="400" fill="#6b6b67" font-style="italic" letter-spacing="2">est. 2026</text>
+</svg>
