@@ -59,7 +59,8 @@ export async function apolloLookup(directorName: string, companyName: string, we
 }
 
 export async function findContact(firmId: string, companyName: string, postcode: string, directorName: string, companyNumber: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/find-contact`, {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+  const res = await fetch(`${baseUrl}/api/enrich/contact`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ firmId, companyName, postcode, directorName, companyNumber }),

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const res = await fetch('http://localhost:3001/api/agent/run', {
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+const res = await fetch(`${baseUrl}/api/agent/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   })
