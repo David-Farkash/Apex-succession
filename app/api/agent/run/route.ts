@@ -259,6 +259,28 @@ async function runTool(name: string, input: any): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  // Security check — only allow requests with the correct secret
+  const secret = req.headers.get('x-agent-secret')
+  if (process.env.AGENT_SECRET && secret !== process.env.AGENT_SECRET) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
+  }
+
+  // Only run weekdays 9am-7pm UK time
+  const now = new Date()
+  const ukTime = new Date(now.toLocaleString('en-GB', { timeZone: 'Europe/London' }))
+  const day = ukTime.getDay()
+  const hour = ukTime.getHours()
+  const isWeekday = day >= 1 && day <= 5
+  const isWorkingHours = hour >= 9 && hour < 19
+
+  if (!isWeekday || !isWorkingHours) {
+    return NextResponse.json({
+      success: false,
+      skipped: true,
+      reason: `Outside operating hours. UK time: ${ukTime.toLocaleString('en-GB')}. Agent runs Mon-Fri 9am-7pm.`,
+    })
+  }
+
   const startedAt = new Date().toISOString()
   const { data: runRecord } = await supabaseAdmin
     .from('agent_runs')
