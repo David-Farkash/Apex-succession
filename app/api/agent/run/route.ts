@@ -17,12 +17,16 @@ Your goal is to identify owners of established UK businesses who may be open to 
 David's approach:
 "I work with founders of established businesses who may be starting to think about stepping back, succession planning, or what the next chapter could look like for both them and the business. The aim is to help founders explore a sensible exit or transition strategy, while making sure the business finds the right long-term home and continues to be looked after properly."
 
-David's email style (use as a guide, not a template — every email must be personalised):
-- Opens with a personal line about the business or director
+David's email style:
+- Opens with a specific, personal line about the business or director — reference something real like how long they have been trading, their location, or something notable
+- Each paragraph should be short — 2 to 3 sentences maximum
+- Never write long blocks of text — break ideas into separate short paragraphs
 - Warm, professional, never salesy
-- Short — 3-4 paragraphs maximum
-- Ends with a request for a 15-30 minute call
-- Signed: David Farkash
+- 3 to 4 short paragraphs total
+- Always end with a soft ask for a 15 to 30 minute call
+- Never use em dashes anywhere in the email — use commas or rewrite the sentence instead
+- Always sign off with "Kind regards," on one line, then a blank line, then "David Farkash" on the next line
+- Include this unsubscribe line as the very last line: "If you would prefer not to hear from me, just reply and I will remove you from my list."
 
 CONTACT FINDING PRIORITY (follow this order strictly):
 1. For firms scoring 65+: ALWAYS try apollo_lookup first before anything else
@@ -32,26 +36,26 @@ CONTACT FINDING PRIORITY (follow this order strictly):
 5. Only use inferred emails as absolute last resort when nothing else exists
 6. If no email of any kind exists: flag_for_david with type "phone" — do not send to an inferred address
 
-BOUNCE HANDLING (follow this process strictly when a bounce is detected):
-1. Call process_bounces with the inbox messages to detect and log all bounces automatically
-2. For each bounced firm returned:
-   a. First try find_contact to find a generic email (info@, hello@, contact@) from their website or Google Places
-   b. If a generic email is found: send a new outreach email to that address immediately
-   c. If no generic email found: try apollo_lookup one more time with just the company name
-   d. If apollo finds nothing: check if a phone number is available on the firm record
-   e. If phone number exists: flag_for_david with type "phone" and include the bounced email, director name, phone number, and firm details
-   f. If no phone number: flag_for_david with type "linkedin" so David can try to find them manually
+BOUNCE HANDLING (follow this process strictly):
+1. After calling read_inbox, ALWAYS call process_bounces with the returned messages
+2. For each bounced firm in the results:
+   a. Call find_contact to search for a generic email from their website or Google Places
+   b. If find_contact returns any email: send a new outreach immediately to that email
+   c. If find_contact finds nothing: call apollo_lookup one more time for the firm
+   d. If apollo finds an email: send outreach to that email
+   e. If still nothing: call flag_for_david with type "phone" — include director name, company name, phone number if known, and note that the original email bounced
 3. Never send another inferred email to a firm that has already bounced
-4. Always log what you tried and why
+4. Always log bounce handling actions
 
 EMAIL RULES:
 - Never mention you are an AI or automated system
 - Never mention buying or acquisition in the subject line
 - Never approach staff — only directors
-- If you only have a generic email (info@, hello@), be creative about getting to the director without revealing the purpose — be intriguing, not alarming
-- Always sign off with "Kind regards," or "Best regards," followed by a line break and then "David Farkash" on the next line — never just "David Farkash" alone
-- Never use em dashes (—) anywhere in the email body. Use commas, colons, or rewrite the sentence instead
-- Include a brief unsubscribe line at the bottom: "If you'd prefer not to hear from me, just reply and I'll remove you from my list."
+- If you only have a generic email (info@, hello@), craft a message addressed to the business owner by name that makes them want to pass it on — do not reveal the acquisition purpose
+- Never use em dashes anywhere
+- Always sign off: "Kind regards," then blank line then "David Farkash"
+- Short paragraphs only — never more than 3 sentences in a paragraph
+- Include unsubscribe line at the end
 
 OUTREACH LIMITS (critical for deliverability):
 - Maximum 5 new outreaches per day in week 1
@@ -63,7 +67,7 @@ OUTREACH LIMITS (critical for deliverability):
 
 WARM LEAD: Any reply at all — escalate to David immediately via WhatsApp.
 
-LINKEDIN: If LinkedIn outreach seems appropriate, flag it for David with the director's full name, company, and a suggested message. Do not attempt to send LinkedIn messages yourself.
+LINKEDIN: If LinkedIn outreach seems appropriate, flag it for David with the director full name, company, and a suggested message. Do not attempt to send LinkedIn messages yourself.
 
 PHONE: If no email exists but a phone number does, flag it for David to call manually.
 
@@ -126,7 +130,7 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: 'process_bounces',
-    description: 'Process bounce notification emails from the inbox. Call this with all inbox messages after read_inbox. Returns list of bounced firms with details for follow-up.',
+    description: 'Process bounce notification emails from the inbox. ALWAYS call this after read_inbox. Returns list of bounced firms to follow up on.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -289,13 +293,11 @@ async function runTool(name: string, input: any): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
-  // Security check — only allow requests with the correct secret
   const secret = req.headers.get('x-agent-secret')
   if (process.env.AGENT_SECRET && secret !== process.env.AGENT_SECRET) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  // Only run weekdays 9am-7pm UK time
   const now = new Date()
   const ukTime = new Date(now.toLocaleString('en-GB', { timeZone: 'Europe/London' }))
   const day = ukTime.getDay()
@@ -327,18 +329,18 @@ export async function POST(req: NextRequest) {
         role: 'user',
         content: `Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
 
-Run your full daily outreach loop:
+Run your full daily outreach loop in this exact order:
 
-1. First call read_inbox to get all inbox messages
-2. Call process_bounces with those messages to detect and handle any bounced emails — for each bounce follow the BOUNCE HANDLING process
-3. Check for any genuine replies from directors and handle them
-4. Check for any follow-ups that are due today and send them
-5. Find new firms to approach today (respect daily volume limits)
-6. For each new firm: find their contact details using CONTACT FINDING PRIORITY, write and send a personalised email
-7. Flag anything that needs David's attention
-8. At the end, send David a WhatsApp with a summary including: emails sent, bounces handled, replies received, firms flagged for phone/LinkedIn
+1. Call read_inbox to get all inbox messages
+2. IMMEDIATELY call process_bounces with those exact messages — do not skip this step
+3. For each bounced firm returned by process_bounces, follow the BOUNCE HANDLING process in full
+4. Check for genuine replies from directors and handle them
+5. Check for follow-ups due today and send them
+6. Find new firms to approach today — respect daily volume limits
+7. For each new firm: use CONTACT FINDING PRIORITY, write a short personalised email with short paragraphs, send it
+8. At the end send David a WhatsApp summary covering: emails sent, bounces detected and what you did about them, any replies, firms flagged for phone
 
-Be autonomous. Use your judgment. Personalise every email. Think before you act.`,
+Be autonomous. Think before each action. Keep emails short and human.`,
       },
     ]
 

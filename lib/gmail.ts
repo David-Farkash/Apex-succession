@@ -21,7 +21,7 @@ function buildSignatureHtml(): string {
       <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px; font-family: Arial, Helvetica, sans-serif;"><strong>David Farkash</strong></div>
       <div style="font-size: 12px; color: #6b6b67; margin-bottom: 8px; font-family: Arial, Helvetica, sans-serif;">The Succession Group</div>
       <div style="font-size: 12px; color: #6b6b67; font-family: Arial, Helvetica, sans-serif;">
-        <a href="mailto:david@thesuccessiongroup.co.uk" style="color: #2d4a3a; text-decoration: none;">david@thesuccessiongroup.co.uk</a><br/>
+        <a href="tel:07528821427" style="color: #2d4a3a; text-decoration: none;">07528 821427</a><br/>
         <a href="https://thesuccessiongroup.co.uk" style="color: #2d4a3a; text-decoration: none;">thesuccessiongroup.co.uk</a>
       </div>
     </div>
@@ -39,9 +39,10 @@ function makeEmailBody(to: string, subject: string, body: string, fromName: stri
   const from = `${fromName} <${process.env.GMAIL_USER}>`
 
   const cleanBody = body
-    .replace(/Best regards,[\s\S]*$/i, '')
     .replace(/Kind regards,[\s\S]*$/i, '')
+    .replace(/Best regards,[\s\S]*$/i, '')
     .replace(/Best,[\s\S]*$/i, '')
+    .replace(/Warm regards,[\s\S]*$/i, '')
     .replace(/David Farkash[\s\S]*$/i, '')
     .trim()
 
