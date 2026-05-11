@@ -5,7 +5,7 @@ import {
   Search, RefreshCw, MapPin, Globe,
   Phone, ExternalLink, X, ChevronLeft, ChevronRight,
   Target, Zap, BarChart2, Clock, Users, CheckCircle2, Building2, Mail,
-  Activity, MessageSquare, Flag, Send
+  Activity, MessageSquare, Flag, Send, PhoneCall, SlidersHorizontal
 } from 'lucide-react'
 
 interface Director {
@@ -75,6 +75,9 @@ interface Firm {
   last_reply_at: string
   linkedin_flagged: boolean
   phone_flagged: boolean
+  call_outcome?: string
+  call_notes?: string
+  called_at?: string
   outreach_log?: any[]
   reply_log?: any[]
 }
@@ -170,24 +173,24 @@ interface SectorDefinition {
 }
 
 const SECTORS: SectorDefinition[] = [
-  { name: 'Accountancies', sicCodes: ['69201', '69202'], play: 'services', valuation: '0.8x–1.2x recurring fees' },
-  { name: 'Tax Consultants', sicCodes: ['69203'], play: 'services', valuation: '0.8x–1.2x recurring fees' },
-  { name: 'IFAs & Insurance Brokers', sicCodes: ['66220', '66290', '66300'], play: 'services', valuation: '2x–3x recurring income' },
-  { name: 'Letting & Estate Agents', sicCodes: ['68310', '68320'], play: 'services', valuation: '1x–1.5x recurring fees' },
-  { name: 'Dental Practices', sicCodes: ['86230'], play: 'services', valuation: '1x–1.2x turnover' },
-  { name: 'Nurseries & Childcare', sicCodes: ['88910', '85100'], play: 'services', valuation: '5x–8x EBITDA' },
-  { name: 'Funeral Directors', sicCodes: ['96030'], play: 'services', valuation: '4x–6x EBITDA' },
-  { name: 'Plumbing, Heating & HVAC', sicCodes: ['43220'], play: 'services', valuation: '3x–5x EBITDA' },
-  { name: 'Electrical Contractors', sicCodes: ['43210'], play: 'services', valuation: '3x–5x EBITDA' },
-  { name: 'Security Companies', sicCodes: ['80100', '80200'], play: 'services', valuation: '3x–4x EBITDA' },
-  { name: 'Pest Control', sicCodes: ['81291'], play: 'services', valuation: '3x–5x EBITDA' },
-  { name: 'Commercial Cleaning & Laundry', sicCodes: ['81210', '81222', '96010'], play: 'services', valuation: '3x–5x EBITDA' },
-  { name: 'Vending Machine Operators', sicCodes: ['47990'], play: 'services', valuation: '3x–5x EBITDA' },
-  { name: 'Builders Merchants', sicCodes: ['46730'], play: 'trade', valuation: '0.4x–0.8x turnover' },
-  { name: 'Electrical & HVAC Wholesale', sicCodes: ['46690', '46439'], play: 'trade', valuation: '0.4x–0.8x turnover' },
-  { name: 'Plumbing & Heating Merchants', sicCodes: ['46740'], play: 'trade', valuation: '0.4x–0.8x turnover' },
-  { name: 'Workwear, PPE & Safety', sicCodes: ['46420', '46499'], play: 'trade', valuation: '0.4x–0.6x turnover' },
-  { name: 'Roofing & Specialist Construction', sicCodes: ['43910', '43999'], play: 'services', valuation: '3x–5x EBITDA' },
+  { name: 'Accountancies', sicCodes: ['69201', '69202'], play: 'services', valuation: '0.8x-1.2x recurring fees' },
+  { name: 'Tax Consultants', sicCodes: ['69203'], play: 'services', valuation: '0.8x-1.2x recurring fees' },
+  { name: 'IFAs & Insurance Brokers', sicCodes: ['66220', '66290', '66300'], play: 'services', valuation: '2x-3x recurring income' },
+  { name: 'Letting & Estate Agents', sicCodes: ['68310', '68320'], play: 'services', valuation: '1x-1.5x recurring fees' },
+  { name: 'Dental Practices', sicCodes: ['86230'], play: 'services', valuation: '1x-1.2x turnover' },
+  { name: 'Nurseries & Childcare', sicCodes: ['88910', '85100'], play: 'services', valuation: '5x-8x EBITDA' },
+  { name: 'Funeral Directors', sicCodes: ['96030'], play: 'services', valuation: '4x-6x EBITDA' },
+  { name: 'Plumbing, Heating & HVAC', sicCodes: ['43220'], play: 'services', valuation: '3x-5x EBITDA' },
+  { name: 'Electrical Contractors', sicCodes: ['43210'], play: 'services', valuation: '3x-5x EBITDA' },
+  { name: 'Security Companies', sicCodes: ['80100', '80200'], play: 'services', valuation: '3x-4x EBITDA' },
+  { name: 'Pest Control', sicCodes: ['81291'], play: 'services', valuation: '3x-5x EBITDA' },
+  { name: 'Commercial Cleaning & Laundry', sicCodes: ['81210', '81222', '96010'], play: 'services', valuation: '3x-5x EBITDA' },
+  { name: 'Vending Machine Operators', sicCodes: ['47990'], play: 'services', valuation: '3x-5x EBITDA' },
+  { name: 'Builders Merchants', sicCodes: ['46730'], play: 'trade', valuation: '0.4x-0.8x turnover' },
+  { name: 'Electrical & HVAC Wholesale', sicCodes: ['46690', '46439'], play: 'trade', valuation: '0.4x-0.8x turnover' },
+  { name: 'Plumbing & Heating Merchants', sicCodes: ['46740'], play: 'trade', valuation: '0.4x-0.8x turnover' },
+  { name: 'Workwear, PPE & Safety', sicCodes: ['46420', '46499'], play: 'trade', valuation: '0.4x-0.6x turnover' },
+  { name: 'Roofing & Specialist Construction', sicCodes: ['43910', '43999'], play: 'services', valuation: '3x-5x EBITDA' },
 ]
 
 const SECTOR_NAMES = SECTORS.map(s => s.name)
@@ -212,19 +215,31 @@ function formatCurrency(val: number | null): string {
   return `£${val.toFixed(0)}`
 }
 
-function ScoreRing({ score }: { score: number }) {
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+  return isMobile
+}
+
+function ScoreRing({ score, size = 48 }: { score: number; size?: number }) {
   const c = score >= 70 ? '#16a34a' : score >= 55 ? '#d97706' : score >= 40 ? '#2563eb' : '#94a3b8'
-  const r = 18
+  const r = size === 48 ? 18 : 14
   const circ = 2 * Math.PI * r
   const dash = (score / 100) * circ
+  const fontSize = size === 48 ? 13 : 11
   return (
-    <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
-      <svg width="48" height="48" viewBox="0 0 48 48" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="24" cy="24" r={r} fill="none" stroke="#e2e8f0" strokeWidth="3" />
-        <circle cx="24" cy="24" r={r} fill="none" stroke={c} strokeWidth="3"
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e2e8f0" strokeWidth="3" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c} strokeWidth="3"
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
       </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: c }}>{score}</div>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize, color: c }}>{score}</div>
     </div>
   )
 }
@@ -276,9 +291,10 @@ function MultiSelect({ label, options, selected, onChange }: {
         border: `1px solid ${selected.length > 0 ? '#3b82f6' : '#e2e8f0'}`,
         color: selected.length > 0 ? '#1d4ed8' : '#64748b',
         padding: '7px 12px', borderRadius: 8, fontSize: 12,
-        cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6
+        cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6,
+        minHeight: 36,
       }}>
-        {selected.length > 0 ? `${label}: ${selected.length} selected` : label}
+        {selected.length > 0 ? `${label}: ${selected.length}` : label}
         <span style={{ fontSize: 10 }}>▾</span>
       </button>
       {open && (
@@ -338,8 +354,8 @@ function FindContactButton({ firm, onDone }: { firm: Firm; onDone: (f: Firm) => 
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
       <button onClick={find} disabled={loading} style={{
         background: loading ? '#f1f5f9' : '#2563eb', border: 'none',
-        color: loading ? '#94a3b8' : '#fff', padding: '6px 12px', borderRadius: 6,
-        fontSize: 11, fontWeight: 600, cursor: loading ? 'wait' : 'pointer'
+        color: loading ? '#94a3b8' : '#fff', padding: '8px 14px', borderRadius: 6,
+        fontSize: 12, fontWeight: 600, cursor: loading ? 'wait' : 'pointer', minHeight: 36
       }}>
         {loading ? 'Searching...' : 'Find Contact'}
       </button>
@@ -377,10 +393,10 @@ function GetPhoneButton({ firm, onDone }: { firm: Firm; onDone: (f: Firm) => voi
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
       <button onClick={getPhone} disabled={loading} style={{
         background: loading ? '#f1f5f9' : '#d97706', border: 'none',
-        color: loading ? '#94a3b8' : '#fff', padding: '6px 12px', borderRadius: 6,
-        fontSize: 11, fontWeight: 600, cursor: loading ? 'wait' : 'pointer'
+        color: loading ? '#94a3b8' : '#fff', padding: '8px 14px', borderRadius: 6,
+        fontSize: 12, fontWeight: 600, cursor: loading ? 'wait' : 'pointer', minHeight: 36
       }}>
-        {loading ? 'Searching...' : '📞 Get Phone (Apollo)'}
+        {loading ? 'Searching...' : 'Get Phone'}
       </button>
       {error && <div style={{ fontSize: 10, color: '#ef4444' }}>{error}</div>}
     </div>
@@ -420,8 +436,8 @@ function ExtractButton({ firmId, companyNumber, companyName, onDone }: {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
       <button onClick={extract} disabled={loading} style={{
         background: loading ? '#f1f5f9' : '#0f172a', border: 'none',
-        color: loading ? '#94a3b8' : '#fff', padding: '6px 12px', borderRadius: 6,
-        fontSize: 11, fontWeight: 600, cursor: loading ? 'wait' : 'pointer'
+        color: loading ? '#94a3b8' : '#fff', padding: '8px 14px', borderRadius: 6,
+        fontSize: 12, fontWeight: 600, cursor: loading ? 'wait' : 'pointer', minHeight: 36
       }}>
         {loading ? 'Extracting...' : 'Extract Financials'}
       </button>
@@ -430,7 +446,86 @@ function ExtractButton({ firmId, companyNumber, companyName, onDone }: {
   )
 }
 
-function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => void; onUpdate: (f: Firm) => void }) {
+function CallOutcomeModal({ firm, onClose, onDone }: { firm: Firm; onClose: () => void; onDone: () => void }) {
+  const [outcome, setOutcome] = useState<string>('')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async () => {
+    if (!outcome) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/firms/${firm.id}/call-outcome`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome, notes }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error || 'Failed to save')
+      onDone()
+    } catch (err: any) {
+      setError(err.message)
+    }
+    setSaving(false)
+  }
+
+  const options = [
+    { key: 'interested', label: '✓ Interested', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+    { key: 'callback', label: '↺ Callback needed', color: '#d97706', bg: '#fefce8', border: '#fde68a' },
+    { key: 'no_answer', label: '✕ No answer', color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' },
+    { key: 'passed', label: '✕ Passed', color: '#94a3b8', bg: '#f1f5f9', border: '#cbd5e1' },
+  ]
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div style={{ position: 'relative', background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>Log call outcome</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}>
+            <X size={20} />
+          </button>
+        </div>
+        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 18 }}>{firm.company_name}</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+          {options.map(opt => (
+            <button key={opt.key} onClick={() => setOutcome(opt.key)}
+              style={{
+                background: outcome === opt.key ? opt.bg : '#fff',
+                border: `1.5px solid ${outcome === opt.key ? opt.color : '#e2e8f0'}`,
+                color: outcome === opt.key ? opt.color : '#475569',
+                padding: '14px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', textAlign: 'left',
+              }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <label style={{ fontSize: 12, color: '#475569', display: 'block', marginBottom: 6, fontWeight: 500 }}>Notes (optional)</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="What did they say? Any follow-ups needed?"
+          style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '10px 12px', borderRadius: 8, fontSize: 13, outline: 'none', resize: 'vertical', marginBottom: 16, boxSizing: 'border-box' }} />
+
+        {error && <div style={{ fontSize: 12, color: '#ef4444', marginBottom: 12 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={!outcome || saving}
+            style={{ flex: 2, background: outcome && !saving ? '#0f172a' : '#e2e8f0', border: 'none', color: outcome && !saving ? '#fff' : '#94a3b8', padding: '12px', borderRadius: 8, fontSize: 13, cursor: outcome && !saving ? 'pointer' : 'default', fontWeight: 600 }}>
+            {saving ? 'Saving...' : 'Save outcome'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FirmDrawer({ firm, onClose, onUpdate, isMobile }: { firm: Firm; onClose: () => void; onUpdate: (f: Firm) => void; isMobile: boolean }) {
   const [notes, setNotes] = useState(firm.notes || '')
   const [status, setStatus] = useState(firm.status)
   const [saving, setSaving] = useState(false)
@@ -461,50 +556,47 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
   }
   const health = healthConfig[firm.financial_health] || healthConfig.unknown
 
+  const drawerStyle: React.CSSProperties = isMobile
+    ? { width: '100%', height: '100%', background: '#fff', overflowY: 'auto', display: 'flex', flexDirection: 'column' }
+    : { width: 520, background: '#fff', borderLeft: '1px solid #e2e8f0', overflowY: 'auto', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.08)' }
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }}>
-      <div style={{ flex: 1, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
-      <div style={{ width: 520, background: '#fff', borderLeft: '1px solid #e2e8f0', overflowY: 'auto', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.08)' }}>
+      {!isMobile && <div style={{ flex: 1, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} onClick={onClose} />}
+      <div style={drawerStyle}>
 
-        <div style={{ padding: '28px 28px 20px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 0, background: '#fff', zIndex: 5 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{firm.company_number}</div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a', lineHeight: 1.3 }}>{firm.company_name}</h2>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: '#0f172a', lineHeight: 1.3 }}>{firm.company_name}</h2>
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <StatusBadge status={status} />
                 {firm.outreach_status && firm.outreach_status !== 'not_contacted' && <OutreachBadge status={firm.outreach_status} />}
                 {firm.sector && <PlayBadge play={firm.play || 'services'} />}
                 {firm.sector && <span style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: 4 }}>{firm.sector}</span>}
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                  <MapPin size={10} style={{ display: 'inline', marginRight: 3 }} />{firm.region}
-                </span>
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>Added {timeAgo(firm.created_at)}</span>
+                {firm.region && <span style={{ fontSize: 11, color: '#94a3b8' }}><MapPin size={10} style={{ display: 'inline', marginRight: 3 }} />{firm.region}</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginLeft: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
               <ScoreRing score={firm.apex_score || 0} />
-              <div style={{ fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                {firm.apex_score >= 70 ? 'Prime Target' : firm.apex_score >= 55 ? 'Strong' : 'Review'}
-              </div>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4, marginLeft: 8 }}>
-              <X size={18} />
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
+              <X size={20} />
             </button>
           </div>
         </div>
 
         {sectorDef && (
-          <div style={{ padding: '12px 28px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ padding: '12px 20px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Building2 size={13} color="#64748b" />
-            <div>
-              <span style={{ fontSize: 11, color: '#64748b' }}>Typical valuation for {sectorDef.name}: </span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>{sectorDef.valuation}</span>
+            <div style={{ fontSize: 11, color: '#64748b' }}>
+              Typical valuation: <span style={{ fontWeight: 700, color: '#0f172a' }}>{sectorDef.valuation}</span>
             </div>
           </div>
         )}
 
-        <div style={{ padding: '16px 28px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {firm.has_succession_risk && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
               <CheckCircle2 size={11} /> No succession plan
@@ -517,18 +609,18 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           )}
           {firm.phone_flagged && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
-              <Phone size={11} /> Phone outreach needed
+              <Phone size={11} /> Phone outreach
             </span>
           )}
-          {!firm.has_succession_risk && firm.successor_name && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fefce8', border: '1px solid #fde68a', color: '#d97706', fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
-              Possible successor: {firm.successor_name} (age {firm.successor_age})
+          {firm.call_outcome && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
+              <PhoneCall size={11} /> Called: {firm.call_outcome.replace('_', ' ')}
             </span>
           )}
         </div>
 
-        <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontWeight: 600 }}>Score Breakdown</div>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>Score Breakdown</div>
           {firm.score_breakdown && Object.entries({
             'Director Age': { val: firm.score_breakdown.age, max: 35 },
             'Succession Risk': { val: firm.score_breakdown.succession, max: 25 },
@@ -548,8 +640,8 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           ))}
         </div>
 
-        <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontWeight: 600 }}>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>
             Directors ({firm.director_count})
           </div>
           {(firm.directors || []).map((d, i) => (
@@ -568,8 +660,8 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           ))}
         </div>
 
-        <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Contact Details</div>
             <div style={{ display: 'flex', gap: 6 }}>
               {!firm.contact_found && <FindContactButton firm={firm} onDone={onUpdate} />}
@@ -579,22 +671,22 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           {firm.contact_found || firm.contact_phone ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {firm.contact_email && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                <a href={`mailto:${firm.contact_email}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', textDecoration: 'none' }}>
                   <Mail size={13} color="#16a34a" />
                   <div>
                     <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>Email</div>
                     <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 500 }}>{firm.contact_email}</div>
                   </div>
-                </div>
+                </a>
               )}
               {firm.contact_phone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#fef9c3', borderRadius: 8, border: '1px solid #fde68a' }}>
-                  <Phone size={13} color="#d97706" />
+                <a href={`tel:${firm.contact_phone.replace(/\s/g, '')}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', background: '#fef9c3', borderRadius: 8, border: '1px solid #fde68a', textDecoration: 'none' }}>
+                  <Phone size={14} color="#d97706" />
                   <div>
-                    <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>Phone</div>
-                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 500 }}>{firm.contact_phone}</div>
+                    <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>Tap to call</div>
+                    <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 600 }}>{firm.contact_phone}</div>
                   </div>
-                </div>
+                </a>
               )}
               {firm.contact_website && (
                 <a href={firm.contact_website} target="_blank" rel="noopener noreferrer"
@@ -610,13 +702,20 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           ) : (
             <div style={{ background: '#f8fafc', borderRadius: 8, padding: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 500 }}>No contact details yet</div>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Click Find Contact to search Google Places for email, or Get Phone to use Apollo phone credits</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Click Find Contact to search Google Places</div>
             </div>
           )}
         </div>
 
-        <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        {firm.call_notes && (
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', background: '#fefce8' }}>
+            <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, fontWeight: 600 }}>Call notes ({firm.called_at && timeAgo(firm.called_at)})</div>
+            <div style={{ fontSize: 13, color: '#0f172a', lineHeight: 1.5 }}>{firm.call_notes}</div>
+          </div>
+        )}
+
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
               Financial Health
               {firm.financial_year && (
@@ -662,8 +761,8 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           )}
         </div>
 
-        <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontWeight: 600 }}>Firm Details</div>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>Firm Details</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {[
               { label: 'Incorporated', value: firm.date_of_creation ? new Date(firm.date_of_creation).getFullYear() : '—' },
@@ -683,36 +782,26 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
               <div style={{ fontSize: 12, color: '#475569' }}>{addressStr}</div>
             </div>
           )}
-          {firm.website && (
-            <a href={firm.website} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: '#2563eb', textDecoration: 'none' }}>
-              <Globe size={12} /> {firm.website}
-            </a>
-          )}
-          {firm.phone && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#64748b' }}>
-              <Phone size={12} /> {firm.phone}
-            </div>
-          )}
         </div>
 
-        <div style={{ padding: '20px 28px', flex: 1 }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, fontWeight: 600 }}>Pipeline</div>
+        <div style={{ padding: '18px 20px', flex: 1 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, fontWeight: 600 }}>Pipeline</div>
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 12, color: '#475569', display: 'block', marginBottom: 6 }}>Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '9px 12px', borderRadius: 8, fontSize: 13, outline: 'none' }}>
+            <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '10px 12px', borderRadius: 8, fontSize: 14, outline: 'none', minHeight: 42 }}>
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 12, color: '#475569', display: 'block', marginBottom: 6 }}>Notes</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} placeholder="Add notes about this firm..."
-              style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '9px 12px', borderRadius: 8, fontSize: 13, outline: 'none', resize: 'vertical' }} />
+              style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '10px 12px', borderRadius: 8, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
           </div>
-          <button onClick={save} disabled={saving} style={{ width: '100%', background: '#0f172a', border: 'none', color: '#fff', padding: '11px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={save} disabled={saving} style={{ width: '100%', background: '#0f172a', border: 'none', color: '#fff', padding: '13px', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1, minHeight: 46 }}>
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
           <a href={`https://find-and-update.company-information.service.gov.uk/company/${firm.company_number}`} target="_blank" rel="noopener noreferrer"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, padding: '9px', borderRadius: 8, border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, textDecoration: 'none' }}>
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, padding: '11px', borderRadius: 8, border: '1px solid #e2e8f0', color: '#64748b', fontSize: 13, textDecoration: 'none', minHeight: 42 }}>
             <ExternalLink size={12} /> View on Companies House
           </a>
         </div>
@@ -721,13 +810,178 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
   )
 }
 
-function OutreachTab() {
+function ToCallTab({ data, onSelectFirm, onCallOutcome, isMobile }: { data: any; onSelectFirm: (f: any) => void; onCallOutcome: (f: any) => void; isMobile: boolean }) {
+  const flagged = data?.flagged || []
+
+  if (flagged.length === 0) {
+    return (
+      <div style={{ padding: 60, textAlign: 'center' }}>
+        <PhoneCall size={32} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
+        <div style={{ color: '#64748b', fontSize: 14, fontWeight: 500, marginBottom: 6 }}>No calls in your queue</div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>When the agent flags firms for phone outreach, they'll appear here.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {flagged.map((f: any) => (
+        <div key={f.id} style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 12, padding: isMobile ? 14 : 16, boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+            <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => onSelectFirm(f)}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{f.company_name}</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>
+                {f.sector || '—'} {f.region && `· ${f.region}`}
+              </div>
+              {f.directors?.[0] && (
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                  Director: {f.directors[0].name}
+                </div>
+              )}
+            </div>
+            <ScoreRing score={f.apex_score || 0} size={40} />
+          </div>
+
+          {f.contact_phone ? (
+            <a href={`tel:${f.contact_phone.replace(/\s/g, '')}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: '#0f172a', borderRadius: 10, textDecoration: 'none', marginBottom: 8 }}>
+              <Phone size={16} color="#fff" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: '#94a3b8' }}>Tap to call</div>
+                <div style={{ fontSize: 15, color: '#fff', fontWeight: 600 }}>{f.contact_phone}</div>
+              </div>
+            </a>
+          ) : (
+            <div style={{ padding: '12px 14px', background: '#fef2f2', borderRadius: 10, marginBottom: 8, border: '1px solid #fecaca' }}>
+              <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginBottom: 4 }}>No phone number</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Open the firm to fetch from Apollo</div>
+            </div>
+          )}
+
+          <button onClick={() => onCallOutcome(f)} style={{
+            width: '100%', background: '#fff', border: '1.5px solid #0f172a',
+            color: '#0f172a', padding: '11px', borderRadius: 8, fontSize: 13,
+            fontWeight: 600, cursor: 'pointer', minHeight: 42,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+          }}>
+            <CheckCircle2 size={14} /> Log call outcome
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PipelineTab({ data, loading, page, setPage, filterStatus, setFilterStatus, search, setSearch, onSelectFirm, isMobile }: any) {
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '1 1 220px', minWidth: 200 }}>
+          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search firm name..."
+            style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '9px 10px 9px 30px', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', minHeight: 38 }} />
+        </div>
+        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
+          style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: filterStatus ? '#0f172a' : '#94a3b8', padding: '9px 10px', borderRadius: 8, fontSize: 13, outline: 'none', minHeight: 38, flex: isMobile ? '1' : 'initial' }}>
+          <option value="">All Statuses</option>
+          <option value="contacted">Contacted</option>
+          <option value="replied">Replied</option>
+          <option value="interested">Interested</option>
+          <option value="bounced">Bounced</option>
+          <option value="passed">Passed</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading...</div>
+      ) : !data?.firms?.length ? (
+        <div style={{ padding: 60, textAlign: 'center' }}>
+          <div style={{ color: '#64748b', fontSize: 14, fontWeight: 500, marginBottom: 6 }}>No firms approached yet</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Run the agent to start outreach.</div>
+        </div>
+      ) : (
+        <>
+          {data.firms.map((firm: any) => (
+            <div key={firm.id} onClick={() => onSelectFirm(firm)}
+              style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 10, padding: 14, marginBottom: 8, cursor: 'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 3 }}>{firm.company_name}</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{firm.sector || '—'} · {firm.region || '—'}</div>
+                </div>
+                <OutreachBadge status={firm.outreach_status} />
+              </div>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: '#64748b', marginTop: 8 }}>
+                <span>Last contact: <strong style={{ color: '#0f172a' }}>{timeAgo(firm.last_contacted_at)}</strong></span>
+                <span>Follow-ups: <strong style={{ color: '#0f172a' }}>{firm.follow_up_count || 0}</strong></span>
+                {firm.last_reply_at && <span style={{ color: '#f59e0b', fontWeight: 600 }}>Replied {timeAgo(firm.last_reply_at)}</span>}
+                {firm.outreach_status === 'bounced' && <span style={{ color: '#dc2626', fontWeight: 600 }}>Email bounced</span>}
+              </div>
+            </div>
+          ))}
+
+          {data.totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '20px 0' }}>
+              <button onClick={() => setPage((p: number) => Math.max(1, p - 1))} disabled={page === 1}
+                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === 1 ? '#94a3b8' : '#0f172a', padding: '8px 14px', borderRadius: 8, cursor: page === 1 ? 'default' : 'pointer', minHeight: 38 }}>
+                <ChevronLeft size={14} style={{ display: 'block' }} />
+              </button>
+              <span style={{ fontSize: 12, color: '#64748b' }}>Page {page} of {data.totalPages}</span>
+              <button onClick={() => setPage((p: number) => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}
+                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === data.totalPages ? '#94a3b8' : '#0f172a', padding: '8px 14px', borderRadius: 8, cursor: page === data.totalPages ? 'default' : 'pointer', minHeight: 38 }}>
+                <ChevronRight size={14} style={{ display: 'block' }} />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function RepliesTab({ data, onSelectFirm, isMobile }: { data: any; onSelectFirm: (f: any) => void; isMobile: boolean }) {
+  const replies = data?.recentReplies || []
+  if (replies.length === 0) {
+    return (
+      <div style={{ padding: 60, textAlign: 'center' }}>
+        <MessageSquare size={32} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
+        <div style={{ color: '#64748b', fontSize: 14, fontWeight: 500, marginBottom: 6 }}>No replies yet</div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>When prospects reply, they'll appear here. Warm replies also notify you on WhatsApp.</div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {replies.map((r: any) => (
+        <div key={r.id} onClick={() => r.firms && onSelectFirm(r.firms)}
+          style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 12, padding: 14, cursor: r.firms ? 'pointer' : 'default' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{r.firms?.company_name || r.from_email}</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{r.from_email} · {timeAgo(r.created_at)}</div>
+            </div>
+            {r.classification && <OutreachBadge status={r.classification === 'warm' ? 'interested' : r.classification === 'cold' ? 'passed' : 'replied'} />}
+          </div>
+          <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.5, padding: '10px 12px', background: '#fefce8', borderRadius: 8, marginTop: 8, maxHeight: 100, overflow: 'hidden', position: 'relative' }}>
+            {r.body?.slice(0, 280)}{r.body?.length > 280 && '...'}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function OutreachTab({ isMobile }: { isMobile: boolean }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [subTab, setSubTab] = useState<'call' | 'pipeline' | 'replies'>('call')
   const [filterStatus, setFilterStatus] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedFirm, setSelectedFirm] = useState<any>(null)
+  const [callOutcomeFirm, setCallOutcomeFirm] = useState<any>(null)
   const [agentRunning, setAgentRunning] = useState(false)
   const [agentResult, setAgentResult] = useState<string | null>(null)
 
@@ -762,160 +1016,85 @@ function OutreachTab() {
     setAgentRunning(false)
   }
 
-  const totalContacted = data?.total || 0
-  const totalReplied = data?.recentReplies?.length || 0
-  const totalFlagged = data?.flagged?.length || 0
+  const flaggedCount = data?.flagged?.length || 0
+  const repliesCount = data?.recentReplies?.length || 0
   const lastRun = data?.recentRuns?.[0]
 
+  const subTabs = [
+    { key: 'call', label: 'To Call', icon: <PhoneCall size={13} />, count: flaggedCount, badge: '#d97706' },
+    { key: 'pipeline', label: 'Pipeline', icon: <Activity size={13} />, count: data?.total || 0, badge: '#2563eb' },
+    { key: 'replies', label: 'Replies', icon: <MessageSquare size={13} />, count: repliesCount, badge: '#f59e0b' },
+  ]
+
   return (
-    <div style={{ padding: '0 28px' }}>
+    <div style={{ padding: isMobile ? '0 14px' : '0 28px', paddingBottom: 24 }}>
 
-      <div style={{ display: 'flex', gap: 16, padding: '20px 0', borderBottom: '1px solid #f1f5f9' }}>
-        {[
-          { icon: <Send size={14} color="#2563eb" />, label: 'Firms Approached', value: totalContacted, color: '#2563eb' },
-          { icon: <MessageSquare size={14} color="#f59e0b" />, label: 'Replies Received', value: totalReplied, color: '#f59e0b' },
-          { icon: <Flag size={14} color="#ef4444" />, label: 'Flagged for David', value: totalFlagged, color: '#ef4444' },
-          { icon: <Activity size={14} color="#16a34a" />, label: 'Last Run', value: lastRun ? timeAgo(lastRun.created_at) : 'Never', color: '#16a34a' },
-        ].map(({ icon, label, value, color }) => (
-          <div key={label} style={{ flex: 1, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>{icon}<span style={{ fontSize: 11, color: '#64748b' }}>{label}</span></div>
-            <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+      {/* Top action bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 0', flexWrap: 'wrap' }}>
+        <button onClick={runAgent} disabled={agentRunning} style={{
+          background: agentRunning ? '#f1f5f9' : '#0f172a', border: 'none',
+          color: agentRunning ? '#94a3b8' : '#fff', padding: '11px 18px',
+          borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: agentRunning ? 'wait' : 'pointer',
+          whiteSpace: 'nowrap', minHeight: 42
+        }}>
+          {agentRunning ? 'Agent running...' : '▶ Run Agent Now'}
+        </button>
+        {agentResult && <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>{agentResult}</div>}
+        {lastRun && !agentResult && (
+          <div style={{ fontSize: 11, color: '#64748b' }}>
+            Last run {timeAgo(lastRun.created_at)} · {lastRun.emails_sent || 0} sent
           </div>
-        ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={runAgent} disabled={agentRunning} style={{
-            background: agentRunning ? '#f1f5f9' : '#0f172a', border: 'none',
-            color: agentRunning ? '#94a3b8' : '#fff', padding: '12px 20px',
-            borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: agentRunning ? 'wait' : 'pointer',
-            whiteSpace: 'nowrap'
-          }}>
-            {agentRunning ? 'Agent running...' : '▶ Run Agent Now'}
-          </button>
-          {agentResult && <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 500, maxWidth: 200 }}>{agentResult}</div>}
-        </div>
-      </div>
-
-      {lastRun && (
-        <div style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, margin: '16px 0', fontSize: 12 }}>
-          <div style={{ display: 'flex', gap: 24, marginBottom: 8 }}>
-            <span style={{ color: '#64748b' }}>Last run: <strong style={{ color: '#0f172a' }}>{timeAgo(lastRun.created_at)}</strong></span>
-            <span style={{ color: '#64748b' }}>Emails sent: <strong style={{ color: '#2563eb' }}>{lastRun.emails_sent || 0}</strong></span>
-            <span style={{ color: '#64748b' }}>Replies handled: <strong style={{ color: '#f59e0b' }}>{lastRun.replies_processed || 0}</strong></span>
-            <span style={{ color: '#64748b' }}>Escalations: <strong style={{ color: '#16a34a' }}>{lastRun.escalations || 0}</strong></span>
-          </div>
-          {lastRun.summary && <div style={{ color: '#475569', lineHeight: 1.5, fontSize: 11 }}>{lastRun.summary.slice(0, 300)}...</div>}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 8, padding: '12px 0', alignItems: 'center' }}>
-        <div style={{ position: 'relative', minWidth: 220 }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search firm name..."
-            style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '7px 10px 7px 30px', borderRadius: 8, fontSize: 13, outline: 'none' }} />
-        </div>
-        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
-          style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: filterStatus ? '#0f172a' : '#94a3b8', padding: '7px 10px', borderRadius: 8, fontSize: 12, outline: 'none' }}>
-          <option value="">All Outreach Statuses</option>
-          <option value="contacted">Contacted</option>
-          <option value="replied">Replied</option>
-          <option value="interested">Interested</option>
-          <option value="bounced">Bounced</option>
-          <option value="passed">Passed</option>
-        </select>
-        <button onClick={fetchData} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '7px 10px', borderRadius: 8, cursor: 'pointer' }}>
-          <RefreshCw size={13} style={{ display: 'block' }} />
+        )}
+        <button onClick={fetchData} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto', minHeight: 42 }}>
+          <RefreshCw size={14} style={{ display: 'block' }} />
         </button>
       </div>
 
-      {data?.flagged?.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 10 }}>
-            Flagged for You — {data.flagged.length} firms
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {data.flagged.map((f: any) => (
-              <div key={f.id} onClick={() => setSelectedFirm(f)} style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{f.company_name}</div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                    {f.phone_flagged && <span style={{ marginRight: 8 }}>📞 Phone outreach needed</span>}
-                    {f.linkedin_flagged && <span>💼 LinkedIn outreach needed</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {f.contact_phone ? (
-                    <span style={{ fontSize: 12, color: '#0f172a', fontWeight: 500 }}>{f.contact_phone}</span>
-                  ) : (
-                    <span style={{ fontSize: 11, color: '#d97706', fontWeight: 500 }}>Click to get phone</span>
-                  )}
-                  <ScoreRing score={f.apex_score} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #e2e8f0', marginBottom: 16, overflowX: 'auto' }}>
+        {subTabs.map(({ key, label, icon, count, badge }) => (
+          <button key={key} onClick={() => setSubTab(key as any)} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 14px', borderRadius: 0, border: 'none', cursor: 'pointer',
+            fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+            background: 'transparent',
+            color: subTab === key ? '#0f172a' : '#64748b',
+            borderBottom: `2px solid ${subTab === key ? '#0f172a' : 'transparent'}`,
+            marginBottom: -1,
+          }}>
+            {icon} {label}
+            {count > 0 && (
+              <span style={{
+                background: subTab === key ? badge : '#f1f5f9',
+                color: subTab === key ? '#fff' : '#64748b',
+                fontSize: 10, fontWeight: 700,
+                padding: '2px 7px', borderRadius: 10, minWidth: 18, textAlign: 'center',
+              }}>{count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {subTab === 'call' && (
+        <ToCallTab data={data} onSelectFirm={setSelectedFirm} onCallOutcome={setCallOutcomeFirm} isMobile={isMobile} />
       )}
-
-      {loading ? (
-        <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading outreach data...</div>
-      ) : !data?.firms?.length ? (
-        <div style={{ padding: 60, textAlign: 'center' }}>
-          <div style={{ color: '#64748b', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>No firms approached yet</div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>Run the agent to start outreach.</div>
-        </div>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px 80px 100px 80px', gap: 12, padding: '10px 12px', fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid #f1f5f9', fontWeight: 600 }}>
-            <div>Firm</div><div>Outreach Status</div><div>Last Contacted</div><div>Follow-ups</div><div>Last Reply</div><div>Signals</div>
-          </div>
-          {data.firms.map((firm: any) => (
-            <div key={firm.id} onClick={() => setSelectedFirm(firm)}
-              style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px 80px 100px 80px', gap: 12, padding: '13px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', background: '#fff', marginTop: 2, borderRadius: 8 }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
-              <div style={{ alignSelf: 'center' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 2 }}>{firm.company_name}</div>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>{firm.sector || '—'} · {firm.region || '—'}</div>
-                {firm.outreach_log?.[0] && (
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {firm.outreach_log[0].subject}
-                  </div>
-                )}
-              </div>
-              <div style={{ alignSelf: 'center' }}><OutreachBadge status={firm.outreach_status} /></div>
-              <div style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center' }}>{timeAgo(firm.last_contacted_at)}</div>
-              <div style={{ fontSize: 12, color: '#475569', alignSelf: 'center' }}>{firm.follow_up_count || 0} sent</div>
-              <div style={{ fontSize: 11, color: firm.last_reply_at ? '#f59e0b' : '#94a3b8', alignSelf: 'center', fontWeight: firm.last_reply_at ? 600 : 400 }}>
-                {firm.last_reply_at ? timeAgo(firm.last_reply_at) : '—'}
-              </div>
-              <div style={{ display: 'flex', gap: 4, alignSelf: 'center', flexWrap: 'wrap' }}>
-                {firm.phone_flagged && <span style={{ background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Phone</span>}
-                {firm.linkedin_flagged && <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>LinkedIn</span>}
-                {firm.reply_log?.length > 0 && <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Replied</span>}
-                {firm.outreach_status === 'bounced' && <span style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Bounced</span>}
-              </div>
-            </div>
-          ))}
-
-          {data.totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '24px 0' }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === 1 ? '#94a3b8' : '#0f172a', padding: '7px 12px', borderRadius: 8, cursor: page === 1 ? 'default' : 'pointer' }}>
-                <ChevronLeft size={14} style={{ display: 'block' }} />
-              </button>
-              <span style={{ fontSize: 12, color: '#64748b' }}>Page {page} of {data.totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(data.totalPages, p + 1))} disabled={page === data.totalPages}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === data.totalPages ? '#94a3b8' : '#0f172a', padding: '7px 12px', borderRadius: 8, cursor: page === data.totalPages ? 'default' : 'pointer' }}>
-                <ChevronRight size={14} style={{ display: 'block' }} />
-              </button>
-            </div>
-          )}
-        </>
+      {subTab === 'pipeline' && (
+        <PipelineTab data={data} loading={loading} page={page} setPage={setPage} filterStatus={filterStatus} setFilterStatus={setFilterStatus} search={search} setSearch={setSearch} onSelectFirm={setSelectedFirm} isMobile={isMobile} />
+      )}
+      {subTab === 'replies' && (
+        <RepliesTab data={data} onSelectFirm={setSelectedFirm} isMobile={isMobile} />
       )}
 
       {selectedFirm && (
         <FirmDrawer firm={selectedFirm} onClose={() => setSelectedFirm(null)} onUpdate={(updated) => {
           setSelectedFirm(updated)
+          fetchData()
+        }} isMobile={isMobile} />
+      )}
+
+      {callOutcomeFirm && (
+        <CallOutcomeModal firm={callOutcomeFirm} onClose={() => setCallOutcomeFirm(null)} onDone={() => {
+          setCallOutcomeFirm(null)
           fetchData()
         }} />
       )}
@@ -924,6 +1103,7 @@ function OutreachTab() {
 }
 
 export default function ApexDashboard() {
+  const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<'firms' | 'outreach'>('firms')
   const [firms, setFirms] = useState<Firm[]>([])
   const [total, setTotal] = useState(0)
@@ -934,6 +1114,7 @@ export default function ApexDashboard() {
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<string | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [importSectors, setImportSectors] = useState<string[]>([])
   const [importPostcode, setImportPostcode] = useState('')
   const [importAll, setImportAll] = useState(false)
@@ -1029,7 +1210,6 @@ export default function ApexDashboard() {
   }
 
   const primeCount = firms.filter(f => f.apex_score >= 70).length
-  const highAge = firms.filter(f => f.oldest_director_age >= 65).length
   const successionCount = firms.filter(f => f.has_succession_risk).length
   const activeFilters = [
     filterRegions.length > 0, filterPostcodes.length > 0, filterBoroughs.length > 0,
@@ -1038,138 +1218,142 @@ export default function ApexDashboard() {
     filterSuccession, filterNoWebsite, filterStatus
   ].filter(Boolean).length
 
-  const stats = [
-    { icon: <BarChart2 size={14} color="#64748b" />, label: 'Total Firms', value: total.toLocaleString(), color: '#0f172a' },
-    { icon: <Zap size={14} color="#16a34a" />, label: 'Prime Targets', value: primeCount.toLocaleString(), color: '#16a34a' },
-    { icon: <Clock size={14} color="#d97706" />, label: 'Age 65+', value: highAge.toLocaleString(), color: '#d97706' },
-    { icon: <CheckCircle2 size={14} color="#2563eb" />, label: 'No Succession', value: successionCount.toLocaleString(), color: '#2563eb' },
-  ]
-
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); * { box-sizing: border-box; font-family: Inter, sans-serif; } input::placeholder { color: #94a3b8; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); * { box-sizing: border-box; font-family: Inter, sans-serif; } input::placeholder { color: #94a3b8; } body { margin: 0; -webkit-text-size-adjust: 100%; }`}</style>
 
-      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 30 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, background: '#0f172a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Target size={16} color="#fff" />
+      {/* Top bar */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: isMobile ? '0 14px' : '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56, position: 'sticky', top: 0, zIndex: 30 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 30, height: 30, background: '#0f172a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Target size={15} color="#fff" />
           </div>
-          <span style={{ fontWeight: 800, fontSize: 17, color: '#0f172a', letterSpacing: '-0.03em' }}>Apex</span>
-          <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 2 }}>Acquisition Intelligence</span>
+          <span style={{ fontWeight: 800, fontSize: 16, color: '#0f172a', letterSpacing: '-0.03em' }}>Apex</span>
+          {!isMobile && <span style={{ fontSize: 12, color: '#94a3b8' }}>Acquisition Intelligence</span>}
         </div>
 
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 2 }}>
           {[
             { key: 'firms', label: 'Firms', icon: <BarChart2 size={13} /> },
             { key: 'outreach', label: 'Outreach', icon: <Send size={13} /> },
           ].map(({ key, label, icon }) => (
             <button key={key} onClick={() => setActiveTab(key as any)} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: isMobile ? '7px 10px' : '7px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500,
               background: activeTab === key ? '#0f172a' : 'transparent',
               color: activeTab === key ? '#fff' : '#64748b',
+              minHeight: 36
             }}>
-              {icon} {label}
+              {icon} {!isMobile && label}
+              {isMobile && label}
             </button>
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {syncResult && <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>{syncResult}</span>}
-          <button onClick={() => setShowImportModal(true)} disabled={syncing}
-            style={{ background: '#0f172a', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: 8, fontSize: 12, cursor: syncing ? 'wait' : 'pointer', fontWeight: 600 }}>
-            {syncing ? 'Importing...' : '+ Import Firms'}
-          </button>
-        </div>
+        <button onClick={() => setShowImportModal(true)} disabled={syncing}
+          style={{ background: '#0f172a', border: 'none', color: '#fff', padding: isMobile ? '8px 10px' : '8px 14px', borderRadius: 8, fontSize: 12, cursor: syncing ? 'wait' : 'pointer', fontWeight: 600, minHeight: 36 }}>
+          {syncing ? '...' : isMobile ? '+' : '+ Import'}
+        </button>
       </div>
+
+      {syncResult && <div style={{ background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', padding: '8px 28px', fontSize: 12, color: '#16a34a', fontWeight: 500 }}>{syncResult}</div>}
 
       {activeTab === 'firms' && (
         <>
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '14px 28px', display: 'flex', gap: 32 }}>
-            {stats.map(({ icon, label, value, color }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Stats bar - simplified on mobile */}
+          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: isMobile ? '10px 14px' : '14px 28px', display: 'flex', gap: isMobile ? 14 : 32, overflowX: 'auto' }}>
+            {[
+              { icon: <BarChart2 size={13} color="#64748b" />, label: 'Total', value: total.toLocaleString(), color: '#0f172a' },
+              { icon: <Zap size={13} color="#16a34a" />, label: 'Prime', value: primeCount.toLocaleString(), color: '#16a34a' },
+              { icon: <CheckCircle2 size={13} color="#2563eb" />, label: 'Succession', value: successionCount.toLocaleString(), color: '#2563eb' },
+            ].map(({ icon, label, value, color }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                 {icon}
-                <span style={{ fontSize: 12, color: '#64748b' }}>{label}</span>
-                <span style={{ fontSize: 15, fontWeight: 700, color }}>{value}</span>
+                <span style={{ fontSize: 11, color: '#64748b' }}>{label}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color }}>{value}</span>
               </div>
             ))}
           </div>
 
-          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '12px 28px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', minWidth: 220 }}>
+          {/* Filters bar */}
+          <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: isMobile ? '10px 14px' : '12px 28px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '0 0 220px', minWidth: 200 }}>
               <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="Search firm name..."
-                style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '7px 10px 7px 30px', borderRadius: 8, fontSize: 13, outline: 'none' }} />
+                style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '9px 10px 9px 30px', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', minHeight: 38 }} />
             </div>
 
-            <MultiSelect label="Sector" options={SECTOR_NAMES} selected={filterSectors} onChange={v => { setFilterSectors(v); setPage(1) }} />
-
-            <select value={filterPlay} onChange={e => { setFilterPlay(e.target.value); setPage(1) }}
-              style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: filterPlay ? '#0f172a' : '#94a3b8', padding: '7px 10px', borderRadius: 8, fontSize: 12, outline: 'none' }}>
-              <option value="">All Plays</option>
-              <option value="services">Services Roll-up</option>
-              <option value="trade">Trade Merchant</option>
-            </select>
-
-            <MultiSelect label="Region" options={REGIONS} selected={filterRegions} onChange={v => { setFilterRegions(v); setPage(1) }} />
-            <MultiSelect label="Borough" options={BOROUGHS} selected={filterBoroughs} onChange={v => { setFilterBoroughs(v); setPage(1) }} />
-            <MultiSelect label="Postcode" options={POSTCODE_PREFIXES} selected={filterPostcodes} onChange={v => { setFilterPostcodes(v); setPage(1) }} />
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px' }}>
-              <Clock size={12} color="#94a3b8" />
-              <span style={{ fontSize: 11, color: '#94a3b8' }}>Age</span>
-              <input value={filterMinAge} onChange={e => { setFilterMinAge(e.target.value); setPage(1) }} placeholder="Min" type="number"
-                style={{ width: 44, background: 'transparent', border: 'none', fontSize: 12, color: '#0f172a', outline: 'none', textAlign: 'center' }} />
-              <span style={{ color: '#94a3b8', fontSize: 11 }}>–</span>
-              <input value={filterMaxAge} onChange={e => { setFilterMaxAge(e.target.value); setPage(1) }} placeholder="Max" type="number"
-                style={{ width: 44, background: 'transparent', border: 'none', fontSize: 12, color: '#0f172a', outline: 'none', textAlign: 'center' }} />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px' }}>
-              <Users size={12} color="#94a3b8" />
-              <span style={{ fontSize: 11, color: '#94a3b8' }}>People</span>
-              <input value={filterMinPeople} onChange={e => { setFilterMinPeople(e.target.value); setPage(1) }} placeholder="Min" type="number"
-                style={{ width: 44, background: 'transparent', border: 'none', fontSize: 12, color: '#0f172a', outline: 'none', textAlign: 'center' }} />
-              <span style={{ color: '#94a3b8', fontSize: 11 }}>–</span>
-              <input value={filterMaxPeople} onChange={e => { setFilterMaxPeople(e.target.value); setPage(1) }} placeholder="Max" type="number"
-                style={{ width: 44, background: 'transparent', border: 'none', fontSize: 12, color: '#0f172a', outline: 'none', textAlign: 'center' }} />
-            </div>
-
-            <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
-              style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: filterStatus ? '#0f172a' : '#94a3b8', padding: '7px 10px', borderRadius: 8, fontSize: 12, outline: 'none' }}>
-              <option value="">All Statuses</option>
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-            </select>
-
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '7px 10px', borderRadius: 8, fontSize: 12, outline: 'none' }}>
-              <option value="apex_score">Sort: Score</option>
-              <option value="oldest_director_age">Sort: Age</option>
-              <option value="director_count">Sort: Size</option>
-              <option value="turnover">Sort: Turnover</option>
-              <option value="created_at">Sort: Newest</option>
-            </select>
-
-            <button onClick={() => { setFilterSuccession(!filterSuccession); setPage(1) }} style={{ background: filterSuccession ? '#f0fdf4' : '#f8fafc', border: `1px solid ${filterSuccession ? '#86efac' : '#e2e8f0'}`, color: filterSuccession ? '#16a34a' : '#64748b', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: filterSuccession ? 600 : 400 }}>
-              <CheckCircle2 size={12} /> No Succession
-            </button>
-
-            <button onClick={() => { setFilterNoWebsite(!filterNoWebsite); setPage(1) }} style={{ background: filterNoWebsite ? '#f0fdf4' : '#f8fafc', border: `1px solid ${filterNoWebsite ? '#86efac' : '#e2e8f0'}`, color: filterNoWebsite ? '#16a34a' : '#64748b', padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: filterNoWebsite ? 600 : 400 }}>
-              <Globe size={12} /> No Website
-            </button>
-
-            {activeFilters > 0 && (
-              <button onClick={clearAll} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, cursor: 'pointer', padding: '7px 8px' }}>
-                Clear all ({activeFilters})
+            {isMobile ? (
+              <button onClick={() => setShowMobileFilters(true)} style={{
+                background: activeFilters > 0 ? '#eff6ff' : '#f8fafc',
+                border: `1px solid ${activeFilters > 0 ? '#3b82f6' : '#e2e8f0'}`,
+                color: activeFilters > 0 ? '#1d4ed8' : '#64748b',
+                padding: '8px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center', minHeight: 38
+              }}>
+                <SlidersHorizontal size={14} /> Filters {activeFilters > 0 && `(${activeFilters})`}
               </button>
-            )}
+            ) : (
+              <>
+                <MultiSelect label="Sector" options={SECTOR_NAMES} selected={filterSectors} onChange={v => { setFilterSectors(v); setPage(1) }} />
+                <select value={filterPlay} onChange={e => { setFilterPlay(e.target.value); setPage(1) }}
+                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: filterPlay ? '#0f172a' : '#94a3b8', padding: '8px 10px', borderRadius: 8, fontSize: 12, outline: 'none', minHeight: 36 }}>
+                  <option value="">All Plays</option>
+                  <option value="services">Services</option>
+                  <option value="trade">Trade</option>
+                </select>
+                <MultiSelect label="Region" options={REGIONS} selected={filterRegions} onChange={v => { setFilterRegions(v); setPage(1) }} />
+                <MultiSelect label="Borough" options={BOROUGHS} selected={filterBoroughs} onChange={v => { setFilterBoroughs(v); setPage(1) }} />
+                <MultiSelect label="Postcode" options={POSTCODE_PREFIXES} selected={filterPostcodes} onChange={v => { setFilterPostcodes(v); setPage(1) }} />
 
-            <button onClick={fetchFirms} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '7px 10px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto' }}>
-              <RefreshCw size={13} style={{ display: 'block' }} />
-            </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', minHeight: 36 }}>
+                  <Clock size={12} color="#94a3b8" />
+                  <span style={{ fontSize: 11, color: '#94a3b8' }}>Age</span>
+                  <input value={filterMinAge} onChange={e => { setFilterMinAge(e.target.value); setPage(1) }} placeholder="Min" type="number"
+                    style={{ width: 44, background: 'transparent', border: 'none', fontSize: 12, color: '#0f172a', outline: 'none', textAlign: 'center' }} />
+                  <span style={{ color: '#94a3b8', fontSize: 11 }}>–</span>
+                  <input value={filterMaxAge} onChange={e => { setFilterMaxAge(e.target.value); setPage(1) }} placeholder="Max" type="number"
+                    style={{ width: 44, background: 'transparent', border: 'none', fontSize: 12, color: '#0f172a', outline: 'none', textAlign: 'center' }} />
+                </div>
+
+                <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1) }}
+                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: filterStatus ? '#0f172a' : '#94a3b8', padding: '8px 10px', borderRadius: 8, fontSize: 12, outline: 'none', minHeight: 36 }}>
+                  <option value="">All Statuses</option>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                </select>
+
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                  style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '8px 10px', borderRadius: 8, fontSize: 12, outline: 'none', minHeight: 36 }}>
+                  <option value="apex_score">Sort: Score</option>
+                  <option value="oldest_director_age">Sort: Age</option>
+                  <option value="director_count">Sort: Size</option>
+                  <option value="turnover">Sort: Turnover</option>
+                  <option value="created_at">Sort: Newest</option>
+                </select>
+
+                <button onClick={() => { setFilterSuccession(!filterSuccession); setPage(1) }} style={{ background: filterSuccession ? '#f0fdf4' : '#f8fafc', border: `1px solid ${filterSuccession ? '#86efac' : '#e2e8f0'}`, color: filterSuccession ? '#16a34a' : '#64748b', padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: filterSuccession ? 600 : 400, minHeight: 36 }}>
+                  <CheckCircle2 size={12} /> No Succession
+                </button>
+
+                <button onClick={() => { setFilterNoWebsite(!filterNoWebsite); setPage(1) }} style={{ background: filterNoWebsite ? '#f0fdf4' : '#f8fafc', border: `1px solid ${filterNoWebsite ? '#86efac' : '#e2e8f0'}`, color: filterNoWebsite ? '#16a34a' : '#64748b', padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: filterNoWebsite ? 600 : 400, minHeight: 36 }}>
+                  <Globe size={12} /> No Website
+                </button>
+
+                {activeFilters > 0 && (
+                  <button onClick={clearAll} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 12, cursor: 'pointer', padding: '7px 8px' }}>
+                    Clear ({activeFilters})
+                  </button>
+                )}
+
+                <button onClick={fetchFirms} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', marginLeft: 'auto', minHeight: 36 }}>
+                  <RefreshCw size={13} style={{ display: 'block' }} />
+                </button>
+              </>
+            )}
           </div>
 
-          <div style={{ padding: '0 28px' }}>
+          {/* Firms list */}
+          <div style={{ padding: isMobile ? '0 14px' : '0 28px' }}>
             {loading ? (
               <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading firms...</div>
             ) : firms.length === 0 ? (
@@ -1177,7 +1361,35 @@ export default function ApexDashboard() {
                 <div style={{ color: '#64748b', fontSize: 14, fontWeight: 500, marginBottom: 8 }}>No firms found</div>
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>Try adjusting your filters or import more firms.</div>
               </div>
+            ) : isMobile ? (
+              // Mobile: card view
+              <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {firms.map(firm => (
+                  <div key={firm.id} onClick={() => setSelectedFirm(firm)}
+                    style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: 10, padding: 14, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 3 }}>{firm.company_name}</div>
+                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{firm.sector || '—'} · {firm.region || '—'}</div>
+                      </div>
+                      <ScoreRing score={firm.apex_score || 0} size={40} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b', flexWrap: 'wrap' }}>
+                      {firm.oldest_director_age > 0 && <span>Age: <strong style={{ color: '#0f172a' }}>{firm.oldest_director_age}</strong></span>}
+                      {firm.director_count > 0 && <span>{firm.director_count} ppl</span>}
+                      {firm.turnover > 0 && <span>{formatCurrency(firm.turnover)}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+                      {firm.has_succession_risk && <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>No heir</span>}
+                      {!firm.has_website && <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>No web</span>}
+                      {firm.contact_found && <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Contact</span>}
+                      {firm.phone_flagged && <span style={{ background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>📞</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
+              // Desktop: table view
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr 140px 110px 70px 100px 100px 130px 80px 110px', gap: 12, padding: '10px 12px', fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid #f1f5f9', marginTop: 4, fontWeight: 600 }}>
                   <div>Score</div><div>Firm</div><div>Sector</div><div>Region</div><div>Age</div><div>People</div><div>Turnover</div><div>Status</div><div>Added</div><div>Signals</div>
@@ -1213,18 +1425,10 @@ export default function ApexDashboard() {
                     <div style={{ alignSelf: 'center' }}><StatusBadge status={firm.status || 'new'} /></div>
                     <div style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center' }}>{timeAgo(firm.created_at)}</div>
                     <div style={{ display: 'flex', gap: 4, alignSelf: 'center', flexWrap: 'wrap' }}>
-                      {firm.has_succession_risk && (
-                        <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>No heir</span>
-                      )}
-                      {!firm.has_website && (
-                        <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>No web</span>
-                      )}
-                      {firm.contact_found && (
-                        <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Contact</span>
-                      )}
-                      {firm.phone_flagged && (
-                        <span style={{ background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>📞</span>
-                      )}
+                      {firm.has_succession_risk && <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>No heir</span>}
+                      {!firm.has_website && <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>No web</span>}
+                      {firm.contact_found && <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Contact</span>}
+                      {firm.phone_flagged && <span style={{ background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>📞</span>}
                       {firm.financials_extracted && (
                         <span style={{ background: firm.financial_health === 'healthy' ? '#f0fdf4' : firm.financial_health === 'distressed' ? '#fef2f2' : '#f8fafc', border: `1px solid ${firm.financial_health === 'healthy' ? '#bbf7d0' : firm.financial_health === 'distressed' ? '#fecaca' : '#e2e8f0'}`, color: firm.financial_health === 'healthy' ? '#16a34a' : firm.financial_health === 'distressed' ? '#dc2626' : '#64748b', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
                           {firm.financial_health}
@@ -1237,15 +1441,16 @@ export default function ApexDashboard() {
             )}
           </div>
 
+          {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '24px 28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '24px 0' }}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === 1 ? '#94a3b8' : '#0f172a', padding: '7px 12px', borderRadius: 8, cursor: page === 1 ? 'default' : 'pointer' }}>
+                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === 1 ? '#94a3b8' : '#0f172a', padding: '8px 14px', borderRadius: 8, cursor: page === 1 ? 'default' : 'pointer', minHeight: 38 }}>
                 <ChevronLeft size={14} style={{ display: 'block' }} />
               </button>
               <span style={{ fontSize: 12, color: '#64748b' }}>Page {page} of {totalPages}</span>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === totalPages ? '#94a3b8' : '#0f172a', padding: '7px 12px', borderRadius: 8, cursor: page === totalPages ? 'default' : 'pointer' }}>
+                style={{ background: '#fff', border: '1px solid #e2e8f0', color: page === totalPages ? '#94a3b8' : '#0f172a', padding: '8px 14px', borderRadius: 8, cursor: page === totalPages ? 'default' : 'pointer', minHeight: 38 }}>
                 <ChevronRight size={14} style={{ display: 'block' }} />
               </button>
             </div>
@@ -1253,12 +1458,96 @@ export default function ApexDashboard() {
         </>
       )}
 
-      {activeTab === 'outreach' && <OutreachTab />}
+      {activeTab === 'outreach' && <OutreachTab isMobile={isMobile} />}
 
+      {/* Mobile filters drawer */}
+      {showMobileFilters && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)' }} onClick={() => setShowMobileFilters(false)} />
+          <div style={{ position: 'relative', background: '#fff', width: '100%', maxHeight: '85vh', borderRadius: '16px 16px 0 0', padding: 20, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Filters</h3>
+              <button onClick={() => setShowMobileFilters(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Sector</label>
+                <MultiSelect label="Select sectors" options={SECTOR_NAMES} selected={filterSectors} onChange={v => { setFilterSectors(v); setPage(1) }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Play</label>
+                <select value={filterPlay} onChange={e => { setFilterPlay(e.target.value); setPage(1) }}
+                  style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: filterPlay ? '#0f172a' : '#94a3b8', padding: '10px 12px', borderRadius: 8, fontSize: 13, outline: 'none', minHeight: 42 }}>
+                  <option value="">All Plays</option>
+                  <option value="services">Services</option>
+                  <option value="trade">Trade</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Region</label>
+                <MultiSelect label="Select regions" options={REGIONS} selected={filterRegions} onChange={v => { setFilterRegions(v); setPage(1) }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Borough</label>
+                <MultiSelect label="Select boroughs" options={BOROUGHS} selected={filterBoroughs} onChange={v => { setFilterBoroughs(v); setPage(1) }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Director Age</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input value={filterMinAge} onChange={e => { setFilterMinAge(e.target.value); setPage(1) }} placeholder="Min age" type="number"
+                    style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 13, color: '#0f172a', outline: 'none', padding: '10px 12px', borderRadius: 8, minHeight: 42 }} />
+                  <input value={filterMaxAge} onChange={e => { setFilterMaxAge(e.target.value); setPage(1) }} placeholder="Max age" type="number"
+                    style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 13, color: '#0f172a', outline: 'none', padding: '10px 12px', borderRadius: 8, minHeight: 42 }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Sort By</label>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                  style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '10px 12px', borderRadius: 8, fontSize: 13, outline: 'none', minHeight: 42 }}>
+                  <option value="apex_score">Apex Score</option>
+                  <option value="oldest_director_age">Director Age</option>
+                  <option value="director_count">Firm Size</option>
+                  <option value="turnover">Turnover</option>
+                  <option value="created_at">Newest</option>
+                </select>
+              </div>
+
+              <button onClick={() => { setFilterSuccession(!filterSuccession); setPage(1) }} style={{ background: filterSuccession ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${filterSuccession ? '#86efac' : '#e2e8f0'}`, color: filterSuccession ? '#16a34a' : '#475569', padding: '12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, minHeight: 46, justifyContent: 'center' }}>
+                <CheckCircle2 size={14} /> No Succession Plan
+              </button>
+
+              <button onClick={() => { setFilterNoWebsite(!filterNoWebsite); setPage(1) }} style={{ background: filterNoWebsite ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${filterNoWebsite ? '#86efac' : '#e2e8f0'}`, color: filterNoWebsite ? '#16a34a' : '#475569', padding: '12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, minHeight: 46, justifyContent: 'center' }}>
+                <Globe size={14} /> No Website
+              </button>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                {activeFilters > 0 && (
+                  <button onClick={() => { clearAll(); setShowMobileFilters(false) }} style={{ flex: 1, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600, minHeight: 46 }}>
+                    Clear all
+                  </button>
+                )}
+                <button onClick={() => setShowMobileFilters(false)} style={{ flex: 2, background: '#0f172a', border: 'none', color: '#fff', padding: '12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600, minHeight: 46 }}>
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
       {showImportModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowImportModal(false)} />
-          <div style={{ position: 'relative', background: '#fff', borderRadius: 16, padding: 32, width: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <div style={{ position: 'relative', background: '#fff', borderRadius: 16, padding: isMobile ? 20 : 32, width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#0f172a' }}>Import Firms</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>Choose sectors and location to pull from Companies House.</p>
 
@@ -1286,7 +1575,6 @@ export default function ApexDashboard() {
                         {importSectors.includes(sector.name) && <span style={{ color: '#fff', fontSize: 9 }}>✓</span>}
                       </span>
                       <span style={{ fontSize: 12, color: importSectors.includes(sector.name) ? '#1d4ed8' : '#1e293b', flex: 1 }}>{sector.name}</span>
-                      <span style={{ fontSize: 10, color: '#94a3b8' }}>{sector.sicCodes.join(', ')}</span>
                     </div>
                   ))}
                   <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, padding: '10px 0 4px' }}>Trade Merchant Roll-up</div>
@@ -1298,7 +1586,6 @@ export default function ApexDashboard() {
                         {importSectors.includes(sector.name) && <span style={{ color: '#fff', fontSize: 9 }}>✓</span>}
                       </span>
                       <span style={{ fontSize: 12, color: importSectors.includes(sector.name) ? '#854d0e' : '#1e293b', flex: 1 }}>{sector.name}</span>
-                      <span style={{ fontSize: 10, color: '#94a3b8' }}>{sector.sicCodes.join(', ')}</span>
                     </div>
                   ))}
                 </div>
@@ -1307,10 +1594,10 @@ export default function ApexDashboard() {
 
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 12, color: '#475569', display: 'block', marginBottom: 6, fontWeight: 500 }}>
-                Postcode Prefix <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional — blank = nationwide)</span>
+                Postcode Prefix <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
               </label>
               <select value={importPostcode} onChange={e => setImportPostcode(e.target.value)}
-                style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '9px 12px', borderRadius: 8, fontSize: 13, outline: 'none' }}>
+                style={{ width: '100%', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a', padding: '10px 12px', borderRadius: 8, fontSize: 13, outline: 'none', minHeight: 42 }}>
                 <option value="">Nationwide (all postcodes)</option>
                 {POSTCODE_PREFIXES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -1318,19 +1605,19 @@ export default function ApexDashboard() {
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowImportModal(false)}
-                style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '10px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
+                style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 500, minHeight: 46 }}>
                 Cancel
               </button>
               <button onClick={runSync} disabled={!importAll && importSectors.length === 0}
-                style={{ flex: 2, background: (!importAll && importSectors.length === 0) ? '#e2e8f0' : '#0f172a', border: 'none', color: (!importAll && importSectors.length === 0) ? '#94a3b8' : '#fff', padding: '10px', borderRadius: 8, fontSize: 13, cursor: (!importAll && importSectors.length === 0) ? 'default' : 'pointer', fontWeight: 600 }}>
-                {importAll ? 'Import All 18 Sectors' : importSectors.length > 0 ? `Import ${importSectors.length} Sector${importSectors.length > 1 ? 's' : ''}` : 'Select Sectors'}
+                style={{ flex: 2, background: (!importAll && importSectors.length === 0) ? '#e2e8f0' : '#0f172a', border: 'none', color: (!importAll && importSectors.length === 0) ? '#94a3b8' : '#fff', padding: '12px', borderRadius: 8, fontSize: 13, cursor: (!importAll && importSectors.length === 0) ? 'default' : 'pointer', fontWeight: 600, minHeight: 46 }}>
+                {importAll ? 'Import All' : importSectors.length > 0 ? `Import ${importSectors.length}` : 'Select Sectors'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {selectedFirm && <FirmDrawer firm={selectedFirm} onClose={() => setSelectedFirm(null)} onUpdate={updateFirm} />}
+      {selectedFirm && <FirmDrawer firm={selectedFirm} onClose={() => setSelectedFirm(null)} onUpdate={updateFirm} isMobile={isMobile} />}
     </div>
   )
 }
