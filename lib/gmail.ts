@@ -36,7 +36,7 @@ function plainToHtml(text: string): string {
     .split(/\n\s*\n/)
     .map(p => p.trim().replace(/\s*\n\s*/g, ' '))
     .filter(p => p.length > 0)
-    .map(p => `<p style="margin: 0 0 16px; line-height: 1.6; color: #0a1f15; font-family: Arial, Helvetica, sans-serif; font-size: 15px;">${p}</p>`)
+    .map(p => `<p style="margin: 0 0 14px; line-height: 1.5; color: #0a1f15; font-family: Arial, Helvetica, sans-serif; font-size: 14px;">${p}</p>`)
     .join('')
 }
 
@@ -53,8 +53,10 @@ function makeEmailBody(to: string, subject: string, body: string, fromName: stri
   // Always append a consistent sign-off so emails never end abruptly
   const bodyWithSignoff = `${cleanBody}\n\nKind regards,`
 
+  // NOTE: No max-width on outer div. Email clients render at their natural width.
+  // The 600px constraint was forcing premature line wraps.
   const htmlBody = `
-    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; color: #0a1f15;">
+    <div style="font-family: Arial, Helvetica, sans-serif; color: #0a1f15;">
       ${plainToHtml(bodyWithSignoff)}
       ${buildSignatureHtml()}
     </div>
