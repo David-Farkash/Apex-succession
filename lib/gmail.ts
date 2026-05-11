@@ -14,13 +14,18 @@ const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
 const LOGO_URL = process.env.LOGO_URL || 'https://thesuccessiongroup.co.uk/tsg-logo.png'
 
-function buildSignatureHtml(): string {
+function buildSignatureHtml(fromName: string): string {
+  // Determine phone based on sender
+  const isZack = fromName.toLowerCase().includes('zack')
+  const phone = isZack ? '07000 000000' : '07528 821427' // Update Zack's number when known
+  const displayName = isZack ? 'Zack' : 'David Farkash'
+
   return `
     <div style="margin-top: 24px; font-family: Arial, Helvetica, sans-serif; color: #0a1f15;">
-      <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px;"><strong>David Farkash</strong></div>
+      <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px;"><strong>${displayName}</strong></div>
       <div style="font-size: 12px; color: #6b6b67; margin-bottom: 8px;">The Succession Group</div>
       <div style="font-size: 12px; color: #6b6b67; margin-bottom: 16px;">
-        <a href="tel:07528821427" style="color: #2d4a3a; text-decoration: none;">07528 821427</a><br/>
+        <a href="tel:${phone.replace(/\s/g, '')}" style="color: #2d4a3a; text-decoration: none;">${phone}</a><br/>
         <a href="https://thesuccessiongroup.co.uk" style="color: #2d4a3a; text-decoration: none;">thesuccessiongroup.co.uk</a>
       </div>
       <img src="${LOGO_URL}" alt="The Succession Group" width="140" style="display: block; opacity: 0.85;" />
@@ -40,32 +45,38 @@ function plainToHtml(text: string): string {
     .join('')
 }
 
-// RFC 2047 encode for non-ASCII characters in headers (like em dashes in subject lines)
+// RFC 2047 encode for non-ASCII characters in headers
 function encodeHeader(value: string): string {
-  // If it's pure ASCII, no encoding needed
   // eslint-disable-next-line no-control-regex
   if (/^[\x00-\x7F]*$/.test(value)) return value
   const b64 = Buffer.from(value, 'utf-8').toString('base64')
   return `=?UTF-8?B?${b64}?=`
 }
 
-function makeEmailBody(to: string, subject: string, body: string, fromName: string): string {
-  const from = `${fromName} <${process.env.GMAIL_USER}>`
+function makeEmailBody(
+  to: string,
+  subject: string,
+  body: string,
+  fromName: string,
+  fromEmailOverride?: string
+): string {
+  const fromEmail = fromEmailOverride || process.env.GMAIL_USER
+  const from = `${fromName} <${fromEmail}>`
 
-  // Strip any sign-off the agent wrote (we add our own consistently)
-  // and strip any "David Farkash" the agent wrote at the end (signature has it)
+  // Strip any sign-off the agent wrote — we add our own consistently
+  // Also strip any name sign-off the agent added at the end
   const cleanBody = body
     .replace(/\n*(kind regards|best regards|warm regards|best wishes|many thanks|regards|best|sincerely|yours sincerely)[,\s]*\n+[\s\S]*$/i, '')
-    .replace(/\n*david farkash[\s\S]*$/i, '')
+    .replace(/\n*(david farkash|zack)[,\s]*[\s\S]*$/i, '')
     .trim()
 
-  // Always append a consistent sign-off so emails never end abruptly
+  // Always append a consistent sign-off
   const bodyWithSignoff = `${cleanBody}\n\nKind regards,`
 
   const htmlBody = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #0a1f15;">
       ${plainToHtml(bodyWithSignoff)}
-      ${buildSignatureHtml()}
+      ${buildSignatureHtml(fromName)}
     </div>
   `
 
@@ -88,14 +99,16 @@ export async function sendEmail({
   subject,
   body,
   fromName = 'David Farkash',
+  fromEmail,
 }: {
   to: string
   subject: string
   body: string
   fromName?: string
+  fromEmail?: string
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    const encoded = makeEmailBody(to, subject, body, fromName)
+    const encoded = makeEmailBody(to, subject, body, fromName, fromEmail)
     const res = await gmail.users.messages.send({
       userId: 'me',
       requestBody: { raw: encoded },

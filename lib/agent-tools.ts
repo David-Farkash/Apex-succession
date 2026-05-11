@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail, getUnreadReplies, markAsRead } from './gmail'
 import { lookupDirectorEmail } from './apollo'
+import { sendTelegramMessage, sendWarmLeadAlert, sendDailyDigest } from './telegram'
 
 export async function getFirms(options: {
   minScore?: number
@@ -78,12 +79,30 @@ export async function sendOutreachEmail(params: {
   emailSource: string
   reasoning: string
   followUpNumber: number
+  sender?: 'david' | 'zack'
 }) {
+  // Default to david if no sender specified
+  const sender = params.sender || 'david'
+
+  const senderConfig = {
+    david: {
+      name: 'David Farkash',
+      email: process.env.GMAIL_USER!,
+    },
+    zack: {
+      name: 'Zack',
+      email: process.env.GMAIL_USER_ZACK || process.env.GMAIL_USER!,
+    },
+  }
+
+  const { name: fromName, email: fromEmail } = senderConfig[sender]
+
   const result = await sendEmail({
     to: params.toEmail,
     subject: params.subject,
     body: params.body,
-    fromName: 'David Farkash',
+    fromName,
+    fromEmail,
   })
 
   if (result.success) {
@@ -98,6 +117,7 @@ export async function sendOutreachEmail(params: {
       gmail_message_id: result.messageId,
       agent_reasoning: params.reasoning,
       follow_up_number: params.followUpNumber,
+      sent_by: sender,
     })
 
     await supabaseAdmin.from('firms').update({
@@ -107,10 +127,11 @@ export async function sendOutreachEmail(params: {
       status: 'approached',
       contact_email: params.toEmail,
       contact_found: true,
+      last_sender: sender,
     }).eq('id', params.firmId)
   }
 
-  return result
+  return { ...result, sender, fromName }
 }
 
 export async function readInbox() {
@@ -152,6 +173,7 @@ export async function readInbox() {
       body: body.slice(0, 3000),
       firm: outreach?.firms || null,
       firmId: outreach?.firm_id || null,
+      sentBy: outreach?.sent_by || 'david',
     })
 
     await markAsRead(messageId)
@@ -201,9 +223,7 @@ export async function processBounces(messages: any[]): Promise<any[]> {
       }
     }
 
-    // Extract bounced email address from body
     const emailMatches = body.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []
-    // Filter out system emails, find the one we sent to
     const bouncedEmail = emailMatches.find(e =>
       !e.includes('mailer-daemon') &&
       !e.includes('postmaster') &&
@@ -213,7 +233,6 @@ export async function processBounces(messages: any[]): Promise<any[]> {
 
     if (!bouncedEmail) continue
 
-    // Find the firm this email was sent to
     const { data: outreach } = await supabaseAdmin
       .from('outreach_log')
       .select('*, firms(*)')
@@ -226,20 +245,18 @@ export async function processBounces(messages: any[]): Promise<any[]> {
 
     const firm = outreach.firms as any
 
-    // Log the bounce in outreach_log
     await supabaseAdmin.from('outreach_log').insert({
       firm_id: outreach.firm_id,
       company_number: outreach.company_number,
       director_name: outreach.director_name,
       to_email: bouncedEmail,
-      subject: 'BOUNCED — ' + outreach.subject,
+      subject: 'BOUNCED: ' + outreach.subject,
       body: `Email bounced. Original email to ${bouncedEmail} was not delivered.`,
       agent_reasoning: 'Automatic bounce detection — will attempt alternative contact',
       follow_up_number: -1,
       email_source: 'bounce',
     })
 
-    // Mark email as bounced and clear the bad email
     await supabaseAdmin.from('firms').update({
       outreach_status: 'bounced',
       contact_email: null,
@@ -290,6 +307,29 @@ export async function logReply(params: {
     last_reply_at: new Date().toISOString(),
     status: params.classification === 'warm' ? 'interested' : params.classification === 'cold' ? 'passed' : 'approached',
   }).eq('id', params.firmId)
+
+  // If warm lead, fire Telegram alert immediately
+  if (params.classification === 'warm') {
+    const { data: firm } = await supabaseAdmin
+      .from('firms')
+      .select('company_name, sector, contact_phone, directors, last_sender')
+      .eq('id', params.firmId)
+      .single()
+
+    if (firm) {
+      const directorName = firm.directors?.[0]?.name || 'Director'
+      const senderName = firm.last_sender === 'zack' ? 'Zack' : 'David'
+      await sendWarmLeadAlert({
+        firmId: params.firmId,
+        firmName: firm.company_name,
+        directorName,
+        sector: firm.sector || '',
+        replyBody: params.body,
+        phone: firm.contact_phone || undefined,
+        senderName,
+      })
+    }
+  }
 }
 
 export async function saveLearning(sector: string, observation: string, evidence: any, confidence: number) {
@@ -315,7 +355,7 @@ export async function flagForDavid(firmId: string, type: 'phone' | 'linkedin', n
   await supabaseAdmin.from('firms').update(update).eq('id', firmId)
   await supabaseAdmin.from('outreach_log').insert({
     firm_id: firmId,
-    agent_reasoning: `Flagged for David ${type} outreach: ${notes}`,
+    agent_reasoning: `Flagged for ${type} outreach: ${notes}`,
     follow_up_number: 0,
     to_email: 'flagged',
     subject: `${type} outreach required`,
@@ -324,27 +364,30 @@ export async function flagForDavid(firmId: string, type: 'phone' | 'linkedin', n
   })
 }
 
-export async function notifyDavid(message: string) {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_WHATSAPP_FROM
-  const to = process.env.WHATSAPP_TO
-
-  if (!accountSid || !authToken || !from || !to) {
-    console.log('Twilio not configured — would have sent:', message)
-    return
+export async function notifyDavid(message: string, warmLeadParams?: {
+  firmId: string
+  firmName: string
+  directorName: string
+  sector: string
+  replyBody: string
+  phone?: string
+  senderName: string
+}) {
+  if (warmLeadParams) {
+    await sendWarmLeadAlert(warmLeadParams)
+  } else {
+    await sendTelegramMessage(message)
   }
+}
 
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      From: `whatsapp:${from}`,
-      To: `whatsapp:${to}`,
-      Body: message,
-    }),
-  })
+export async function sendDigest(params: {
+  emailsSent: number
+  bouncesDetected: number
+  repliesReceived: number
+  warmLeads: number
+  firmsFlagged: number
+  flaggedNames: string[]
+  senderBreakdown: { david: number; zack: number }
+}) {
+  await sendDailyDigest(params)
 }
