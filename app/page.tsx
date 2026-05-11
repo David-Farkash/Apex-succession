@@ -96,6 +96,7 @@ const OUTREACH_STATUS_COLORS: Record<string, string> = {
   replied: '#f59e0b',
   interested: '#22c55e',
   passed: '#cbd5e1',
+  bounced: '#ef4444',
 }
 
 const REGIONS = [
@@ -347,6 +348,45 @@ function FindContactButton({ firm, onDone }: { firm: Firm; onDone: (f: Firm) => 
   )
 }
 
+function GetPhoneButton({ firm, onDone }: { firm: Firm; onDone: (f: Firm) => void }) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const getPhone = async () => {
+    if (!confirm('This will use Apollo phone credits (more expensive than email). Continue?')) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/apollo-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firmId: firm.id }),
+      })
+      const data = await res.json()
+      if (!data.phone) throw new Error('No phone found in Apollo')
+      const firmRes = await fetch(`/api/firms/${firm.id}`)
+      const firmData = await firmRes.json()
+      if (firmData.firm) onDone(firmData.firm)
+    } catch (err: any) {
+      setError(err.message)
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+      <button onClick={getPhone} disabled={loading} style={{
+        background: loading ? '#f1f5f9' : '#d97706', border: 'none',
+        color: loading ? '#94a3b8' : '#fff', padding: '6px 12px', borderRadius: 6,
+        fontSize: 11, fontWeight: 600, cursor: loading ? 'wait' : 'pointer'
+      }}>
+        {loading ? 'Searching...' : '📞 Get Phone (Apollo)'}
+      </button>
+      {error && <div style={{ fontSize: 10, color: '#ef4444' }}>{error}</div>}
+    </div>
+  )
+}
+
 function ExtractButton({ firmId, companyNumber, companyName, onDone }: {
   firmId: string
   companyNumber: string
@@ -475,6 +515,11 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
               <CheckCircle2 size={11} /> No website
             </span>
           )}
+          {firm.phone_flagged && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
+              <Phone size={11} /> Phone outreach needed
+            </span>
+          )}
           {!firm.has_succession_risk && firm.successor_name && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fefce8', border: '1px solid #fde68a', color: '#d97706', fontSize: 11, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
               Possible successor: {firm.successor_name} (age {firm.successor_age})
@@ -526,9 +571,12 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
         <div style={{ padding: '20px 28px', borderBottom: '1px solid #f1f5f9' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Contact Details</div>
-            {!firm.contact_found && <FindContactButton firm={firm} onDone={onUpdate} />}
+            <div style={{ display: 'flex', gap: 6 }}>
+              {!firm.contact_found && <FindContactButton firm={firm} onDone={onUpdate} />}
+              {!firm.contact_phone && <GetPhoneButton firm={firm} onDone={onUpdate} />}
+            </div>
           </div>
-          {firm.contact_found ? (
+          {firm.contact_found || firm.contact_phone ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {firm.contact_email && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
@@ -540,8 +588,8 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
                 </div>
               )}
               {firm.contact_phone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <Phone size={13} color="#64748b" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#fef9c3', borderRadius: 8, border: '1px solid #fde68a' }}>
+                  <Phone size={13} color="#d97706" />
                   <div>
                     <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>Phone</div>
                     <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 500 }}>{firm.contact_phone}</div>
@@ -562,7 +610,7 @@ function FirmDrawer({ firm, onClose, onUpdate }: { firm: Firm; onClose: () => vo
           ) : (
             <div style={{ background: '#f8fafc', borderRadius: 8, padding: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: 500 }}>No contact details yet</div>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>Click Find Contact to search for email and phone</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>Click Find Contact to search Google Places for email, or Get Phone to use Apollo phone credits</div>
             </div>
           )}
         </div>
@@ -722,7 +770,6 @@ function OutreachTab() {
   return (
     <div style={{ padding: '0 28px' }}>
 
-      {/* Stats */}
       <div style={{ display: 'flex', gap: 16, padding: '20px 0', borderBottom: '1px solid #f1f5f9' }}>
         {[
           { icon: <Send size={14} color="#2563eb" />, label: 'Firms Approached', value: totalContacted, color: '#2563eb' },
@@ -748,7 +795,6 @@ function OutreachTab() {
         </div>
       </div>
 
-      {/* Last run summary */}
       {lastRun && (
         <div style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, margin: '16px 0', fontSize: 12 }}>
           <div style={{ display: 'flex', gap: 24, marginBottom: 8 }}>
@@ -761,7 +807,6 @@ function OutreachTab() {
         </div>
       )}
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 8, padding: '12px 0', alignItems: 'center' }}>
         <div style={{ position: 'relative', minWidth: 220 }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -774,6 +819,7 @@ function OutreachTab() {
           <option value="contacted">Contacted</option>
           <option value="replied">Replied</option>
           <option value="interested">Interested</option>
+          <option value="bounced">Bounced</option>
           <option value="passed">Passed</option>
         </select>
         <button onClick={fetchData} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '7px 10px', borderRadius: 8, cursor: 'pointer' }}>
@@ -781,7 +827,6 @@ function OutreachTab() {
         </button>
       </div>
 
-      {/* Flagged for David */}
       {data?.flagged?.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600, marginBottom: 10 }}>
@@ -789,7 +834,7 @@ function OutreachTab() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {data.flagged.map((f: any) => (
-              <div key={f.id} style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={f.id} onClick={() => setSelectedFirm(f)} style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{f.company_name}</div>
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
@@ -798,7 +843,11 @@ function OutreachTab() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {f.contact_phone && <span style={{ fontSize: 12, color: '#0f172a', fontWeight: 500 }}>{f.contact_phone}</span>}
+                  {f.contact_phone ? (
+                    <span style={{ fontSize: 12, color: '#0f172a', fontWeight: 500 }}>{f.contact_phone}</span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: '#d97706', fontWeight: 500 }}>Click to get phone</span>
+                  )}
                   <ScoreRing score={f.apex_score} />
                 </div>
               </div>
@@ -807,7 +856,6 @@ function OutreachTab() {
         </div>
       )}
 
-      {/* Firms table */}
       {loading ? (
         <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading outreach data...</div>
       ) : !data?.firms?.length ? (
@@ -844,11 +892,11 @@ function OutreachTab() {
                 {firm.phone_flagged && <span style={{ background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Phone</span>}
                 {firm.linkedin_flagged && <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>LinkedIn</span>}
                 {firm.reply_log?.length > 0 && <span style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Replied</span>}
+                {firm.outreach_status === 'bounced' && <span style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Bounced</span>}
               </div>
             </div>
           ))}
 
-          {/* Pagination */}
           {data.totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '24px 0' }}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
@@ -1001,7 +1049,6 @@ export default function ApexDashboard() {
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); * { box-sizing: border-box; font-family: Inter, sans-serif; } input::placeholder { color: #94a3b8; }`}</style>
 
-      {/* Top bar */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60, position: 'sticky', top: 0, zIndex: 30 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, background: '#0f172a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1011,7 +1058,6 @@ export default function ApexDashboard() {
           <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 2 }}>Acquisition Intelligence</span>
         </div>
 
-        {/* Tabs */}
         <div style={{ display: 'flex', gap: 4 }}>
           {[
             { key: 'firms', label: 'Firms', icon: <BarChart2 size={13} /> },
@@ -1039,7 +1085,6 @@ export default function ApexDashboard() {
 
       {activeTab === 'firms' && (
         <>
-          {/* Stats bar */}
           <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '14px 28px', display: 'flex', gap: 32 }}>
             {stats.map(({ icon, label, value, color }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1050,7 +1095,6 @@ export default function ApexDashboard() {
             ))}
           </div>
 
-          {/* Filters */}
           <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '12px 28px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', minWidth: 220 }}>
               <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
@@ -1125,7 +1169,6 @@ export default function ApexDashboard() {
             </button>
           </div>
 
-          {/* Table */}
           <div style={{ padding: '0 28px' }}>
             {loading ? (
               <div style={{ padding: 60, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading firms...</div>
@@ -1179,6 +1222,9 @@ export default function ApexDashboard() {
                       {firm.contact_found && (
                         <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Contact</span>
                       )}
+                      {firm.phone_flagged && (
+                        <span style={{ background: '#fef9c3', border: '1px solid #fde68a', color: '#854d0e', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>📞</span>
+                      )}
                       {firm.financials_extracted && (
                         <span style={{ background: firm.financial_health === 'healthy' ? '#f0fdf4' : firm.financial_health === 'distressed' ? '#fef2f2' : '#f8fafc', border: `1px solid ${firm.financial_health === 'healthy' ? '#bbf7d0' : firm.financial_health === 'distressed' ? '#fecaca' : '#e2e8f0'}`, color: firm.financial_health === 'healthy' ? '#16a34a' : firm.financial_health === 'distressed' ? '#dc2626' : '#64748b', fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
                           {firm.financial_health}
@@ -1191,7 +1237,6 @@ export default function ApexDashboard() {
             )}
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '24px 28px' }}>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
@@ -1210,7 +1255,6 @@ export default function ApexDashboard() {
 
       {activeTab === 'outreach' && <OutreachTab />}
 
-      {/* Import Modal */}
       {showImportModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowImportModal(false)} />
