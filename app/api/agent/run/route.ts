@@ -49,7 +49,8 @@ EMAIL RULES:
 - Never mention buying or acquisition in the subject line
 - Never approach staff — only directors
 - If you only have a generic email (info@, hello@), be creative about getting to the director without revealing the purpose — be intriguing, not alarming
-- Always sign off as David Farkash
+- Always sign off with "Kind regards," or "Best regards," followed by a line break and then "David Farkash" on the next line — never just "David Farkash" alone
+- Never use em dashes (—) anywhere in the email body. Use commas, colons, or rewrite the sentence instead
 - Include a brief unsubscribe line at the bottom: "If you'd prefer not to hear from me, just reply and I'll remove you from my list."
 
 OUTREACH LIMITS (critical for deliverability):
