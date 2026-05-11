@@ -17,13 +17,13 @@ const LOGO_URL = process.env.LOGO_URL || 'https://thesuccessiongroup.co.uk/tsg-l
 function buildSignatureHtml(): string {
   return `
     <div style="margin-top: 24px; font-family: Arial, Helvetica, sans-serif; color: #0a1f15;">
-      <img src="${LOGO_URL}" alt="The Succession Group" width="160" style="display: block; margin-bottom: 12px;" />
-      <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px; font-family: Arial, Helvetica, sans-serif;"><strong>David Farkash</strong></div>
-      <div style="font-size: 12px; color: #6b6b67; margin-bottom: 8px; font-family: Arial, Helvetica, sans-serif;">The Succession Group</div>
-      <div style="font-size: 12px; color: #6b6b67; font-family: Arial, Helvetica, sans-serif;">
+      <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px;"><strong>David Farkash</strong></div>
+      <div style="font-size: 12px; color: #6b6b67; margin-bottom: 8px;">The Succession Group</div>
+      <div style="font-size: 12px; color: #6b6b67; margin-bottom: 16px;">
         <a href="tel:07528821427" style="color: #2d4a3a; text-decoration: none;">07528 821427</a><br/>
         <a href="https://thesuccessiongroup.co.uk" style="color: #2d4a3a; text-decoration: none;">thesuccessiongroup.co.uk</a>
       </div>
+      <img src="${LOGO_URL}" alt="The Succession Group" width="140" style="display: block; opacity: 0.85;" />
     </div>
   `
 }
@@ -40,6 +40,15 @@ function plainToHtml(text: string): string {
     .join('')
 }
 
+// RFC 2047 encode for non-ASCII characters in headers (like em dashes in subject lines)
+function encodeHeader(value: string): string {
+  // If it's pure ASCII, no encoding needed
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(value)) return value
+  const b64 = Buffer.from(value, 'utf-8').toString('base64')
+  return `=?UTF-8?B?${b64}?=`
+}
+
 function makeEmailBody(to: string, subject: string, body: string, fromName: string): string {
   const from = `${fromName} <${process.env.GMAIL_USER}>`
 
@@ -53,8 +62,6 @@ function makeEmailBody(to: string, subject: string, body: string, fromName: stri
   // Always append a consistent sign-off so emails never end abruptly
   const bodyWithSignoff = `${cleanBody}\n\nKind regards,`
 
-  // NOTE: No max-width on outer div. Email clients render at their natural width.
-  // The 600px constraint was forcing premature line wraps.
   const htmlBody = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #0a1f15;">
       ${plainToHtml(bodyWithSignoff)}
@@ -65,14 +72,15 @@ function makeEmailBody(to: string, subject: string, body: string, fromName: stri
   const messageParts = [
     `From: ${from}`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeHeader(subject)}`,
     `MIME-Version: 1.0`,
-    `Content-Type: text/html; charset=utf-8`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: 8bit`,
     ``,
     htmlBody,
   ]
-  const message = messageParts.join('\n')
-  return Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const message = messageParts.join('\r\n')
+  return Buffer.from(message, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 export async function sendEmail({

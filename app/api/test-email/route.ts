@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const result = await sendEmail({
     to,
-    subject: 'TEST — Email formatting check',
+    subject: 'Email formatting test',
     body: SAMPLE_BODY,
     fromName: 'David Farkash',
   })
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const result = await sendEmail({
     to,
-    subject: 'TEST — Email formatting check',
+    subject: 'Email formatting test',
     body: SAMPLE_BODY,
     fromName: 'David Farkash',
   })
