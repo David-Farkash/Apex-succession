@@ -4,7 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import {
   getFirms, getFirmHistory, apolloLookup, sendOutreachEmail,
   readInbox, logReply, saveLearning, getLearnings,
-  updateFirmStatus, flagForDavid, notifyDavid, findContact
+  updateFirmStatus, flagForDavid, notifyDavid, findContact,
+  processBounces
 } from '@/lib/agent-tools'
 
 const client = new Anthropic()
@@ -30,6 +31,18 @@ CONTACT FINDING PRIORITY (follow this order strictly):
 4. If find_contact returns a generic email (info@, hello@, enquiries@): use it — do not infer
 5. Only use inferred emails as absolute last resort when nothing else exists
 6. If no email of any kind exists: flag_for_david with type "phone" — do not send to an inferred address
+
+BOUNCE HANDLING (follow this process strictly when a bounce is detected):
+1. Call process_bounces with the inbox messages to detect and log all bounces automatically
+2. For each bounced firm returned:
+   a. First try find_contact to find a generic email (info@, hello@, contact@) from their website or Google Places
+   b. If a generic email is found: send a new outreach email to that address immediately
+   c. If no generic email found: try apollo_lookup one more time with just the company name
+   d. If apollo finds nothing: check if a phone number is available on the firm record
+   e. If phone number exists: flag_for_david with type "phone" and include the bounced email, director name, phone number, and firm details
+   f. If no phone number: flag_for_david with type "linkedin" so David can try to find them manually
+3. Never send another inferred email to a firm that has already bounced
+4. Always log what you tried and why
 
 EMAIL RULES:
 - Never mention you are an AI or automated system
@@ -65,7 +78,7 @@ const tools: Anthropic.Tool[] = [
         minScore: { type: 'number', description: 'Minimum Apex score' },
         maxScore: { type: 'number', description: 'Maximum Apex score' },
         sector: { type: 'string', description: 'Filter by sector name' },
-        outreachStatus: { type: 'string', description: 'not_contacted, contacted, replied, interested, passed' },
+        outreachStatus: { type: 'string', description: 'not_contacted, contacted, replied, interested, passed, bounced' },
         limit: { type: 'number', description: 'Max firms to return' },
         followUpDue: { type: 'boolean', description: 'If true, returns firms that are due a follow up (contacted 7+ days ago, less than 3 follow ups)' },
       },
@@ -97,7 +110,7 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: 'find_contact',
-    description: 'Find contact details for a firm using Google Places and website scraping',
+    description: 'Find contact details for a firm using Google Places and website scraping. Also use this after a bounce to find a generic email.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -108,6 +121,20 @@ const tools: Anthropic.Tool[] = [
         companyNumber: { type: 'string' },
       },
       required: ['firmId', 'companyName', 'companyNumber'],
+    },
+  },
+  {
+    name: 'process_bounces',
+    description: 'Process bounce notification emails from the inbox. Call this with all inbox messages after read_inbox. Returns list of bounced firms with details for follow-up.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        messages: {
+          type: 'array',
+          description: 'The array of inbox messages returned by read_inbox',
+        },
+      },
+      required: ['messages'],
     },
   },
   {
@@ -122,7 +149,7 @@ const tools: Anthropic.Tool[] = [
         toEmail: { type: 'string' },
         subject: { type: 'string' },
         body: { type: 'string' },
-        emailSource: { type: 'string', description: 'director_direct, generic, inferred' },
+        emailSource: { type: 'string', description: 'director_direct, generic, inferred, bounce_retry' },
         reasoning: { type: 'string', description: 'Why you chose this approach, angle, and email for this firm' },
         followUpNumber: { type: 'number', description: '0 for first contact, 1 for first follow up, etc' },
       },
@@ -200,7 +227,7 @@ const tools: Anthropic.Tool[] = [
       properties: {
         firmId: { type: 'string' },
         type: { type: 'string', description: 'phone or linkedin' },
-        notes: { type: 'string', description: 'Full context for David — director name, why you are flagging, suggested approach' },
+        notes: { type: 'string', description: 'Full context for David — director name, why you are flagging, suggested approach, phone number if available' },
       },
       required: ['firmId', 'type', 'notes'],
     },
@@ -229,6 +256,8 @@ async function runTool(name: string, input: any): Promise<string> {
         return JSON.stringify(await apolloLookup(input.directorName, input.companyName, input.website))
       case 'find_contact':
         return JSON.stringify(await findContact(input.firmId, input.companyName, input.postcode || '', input.directorName || '', input.companyNumber))
+      case 'process_bounces':
+        return JSON.stringify(await processBounces(input.messages || []))
       case 'send_outreach_email':
         return JSON.stringify(await sendOutreachEmail(input))
       case 'read_inbox':
@@ -299,12 +328,14 @@ export async function POST(req: NextRequest) {
 
 Run your full daily outreach loop:
 
-1. First check your inbox for any replies and handle them
-2. Check for any follow-ups that are due today and send them
-3. Find new firms to approach today (respect daily volume limits)
-4. For each new firm: find their contact details, decide on the best approach, write and send a personalised email
-5. Flag anything that needs David's attention
-6. At the end, send David a WhatsApp with a summary of what you did today
+1. First call read_inbox to get all inbox messages
+2. Call process_bounces with those messages to detect and handle any bounced emails — for each bounce follow the BOUNCE HANDLING process
+3. Check for any genuine replies from directors and handle them
+4. Check for any follow-ups that are due today and send them
+5. Find new firms to approach today (respect daily volume limits)
+6. For each new firm: find their contact details using CONTACT FINDING PRIORITY, write and send a personalised email
+7. Flag anything that needs David's attention
+8. At the end, send David a WhatsApp with a summary including: emails sent, bounces handled, replies received, firms flagged for phone/LinkedIn
 
 Be autonomous. Use your judgment. Personalise every email. Think before you act.`,
       },
@@ -312,7 +343,7 @@ Be autonomous. Use your judgment. Personalise every email. Think before you act.
 
     let continueLoop = true
     let iterations = 0
-    const maxIterations = 50
+    const maxIterations = 60
 
     while (continueLoop && iterations < maxIterations) {
       iterations++

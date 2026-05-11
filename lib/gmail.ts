@@ -16,11 +16,11 @@ const LOGO_URL = process.env.LOGO_URL || 'https://thesuccessiongroup.co.uk/tsg-l
 
 function buildSignatureHtml(): string {
   return `
-    <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e8e6df; font-family: Georgia, serif; color: #0a1f15;">
+    <div style="margin-top: 24px; font-family: Arial, Helvetica, sans-serif; color: #0a1f15;">
       <img src="${LOGO_URL}" alt="The Succession Group" width="160" style="display: block; margin-bottom: 12px;" />
-      <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px;">David Farkash</div>
-      <div style="font-size: 12px; color: #6b6b67; margin-bottom: 8px; font-style: italic;">The Succession Group</div>
-      <div style="font-size: 12px; color: #6b6b67;">
+      <div style="font-size: 14px; color: #0a1f15; margin-bottom: 2px; font-family: Arial, Helvetica, sans-serif;"><strong>David Farkash</strong></div>
+      <div style="font-size: 12px; color: #6b6b67; margin-bottom: 8px; font-family: Arial, Helvetica, sans-serif;">The Succession Group</div>
+      <div style="font-size: 12px; color: #6b6b67; font-family: Arial, Helvetica, sans-serif;">
         <a href="mailto:david@thesuccessiongroup.co.uk" style="color: #2d4a3a; text-decoration: none;">david@thesuccessiongroup.co.uk</a><br/>
         <a href="https://thesuccessiongroup.co.uk" style="color: #2d4a3a; text-decoration: none;">thesuccessiongroup.co.uk</a>
       </div>
@@ -31,22 +31,26 @@ function buildSignatureHtml(): string {
 function plainToHtml(text: string): string {
   return text
     .split('\n\n')
-    .map(p => `<p style="margin: 0 0 16px; line-height: 1.6; color: #0a1f15; font-family: Georgia, serif; font-size: 15px;">${p.replace(/\n/g, '<br/>')}</p>`)
+    .map(p => `<p style="margin: 0 0 16px; line-height: 1.6; color: #0a1f15; font-family: Arial, Helvetica, sans-serif; font-size: 15px;">${p.replace(/\n/g, '<br/>')}</p>`)
     .join('')
 }
 
 function makeEmailBody(to: string, subject: string, body: string, fromName: string): string {
   const from = `${fromName} <${process.env.GMAIL_USER}>`
 
-  // Strip any existing signature from the body since we add our own
   const cleanBody = body
     .replace(/Best regards,[\s\S]*$/i, '')
-    .replace(/Best,[\s\S]*$/i, '')
     .replace(/Kind regards,[\s\S]*$/i, '')
+    .replace(/Best,[\s\S]*$/i, '')
     .replace(/David Farkash[\s\S]*$/i, '')
     .trim()
 
-  const htmlBody = plainToHtml(cleanBody) + buildSignatureHtml()
+  const htmlBody = `
+    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; color: #0a1f15;">
+      ${plainToHtml(cleanBody)}
+      ${buildSignatureHtml()}
+    </div>
+  `
 
   const messageParts = [
     `From: ${from}`,

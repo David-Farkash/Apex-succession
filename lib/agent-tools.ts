@@ -105,6 +105,8 @@ export async function sendOutreachEmail(params: {
       last_contacted_at: new Date().toISOString(),
       follow_up_count: params.followUpNumber,
       status: 'approached',
+      contact_email: params.toEmail,
+      contact_found: true,
     }).eq('id', params.firmId)
   }
 
@@ -156,6 +158,108 @@ export async function readInbox() {
   }
 
   return processed
+}
+
+export async function processBounces(messages: any[]): Promise<any[]> {
+  const bounces = []
+
+  for (const msg of messages) {
+    const headers = msg.payload?.headers || []
+    const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
+    const from = headers.find((h: any) => h.name === 'From')?.value || ''
+
+    const isBounce =
+      subject.toLowerCase().includes('delivery status') ||
+      subject.toLowerCase().includes('undelivered') ||
+      subject.toLowerCase().includes('delivery failure') ||
+      subject.toLowerCase().includes('failed to deliver') ||
+      subject.toLowerCase().includes('address not found') ||
+      subject.toLowerCase().includes('mail delivery') ||
+      from.toLowerCase().includes('mailer-daemon') ||
+      from.toLowerCase().includes('postmaster') ||
+      from.toLowerCase().includes('mail delivery')
+
+    if (!isBounce) continue
+
+    let body = ''
+    if (msg.payload?.body?.data) {
+      body = Buffer.from(msg.payload.body.data, 'base64').toString('utf-8')
+    } else if (msg.payload?.parts) {
+      for (const part of msg.payload.parts) {
+        if (part.mimeType === 'text/plain' && part.body?.data) {
+          body = Buffer.from(part.body.data, 'base64').toString('utf-8')
+          break
+        }
+        if (part.parts) {
+          for (const subpart of part.parts) {
+            if (subpart.mimeType === 'text/plain' && subpart.body?.data) {
+              body = Buffer.from(subpart.body.data, 'base64').toString('utf-8')
+              break
+            }
+          }
+        }
+      }
+    }
+
+    // Extract bounced email address from body
+    const emailMatches = body.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []
+    // Filter out system emails, find the one we sent to
+    const bouncedEmail = emailMatches.find(e =>
+      !e.includes('mailer-daemon') &&
+      !e.includes('postmaster') &&
+      !e.includes('google.com') &&
+      !e.includes('thesuccessiongroup')
+    )
+
+    if (!bouncedEmail) continue
+
+    // Find the firm this email was sent to
+    const { data: outreach } = await supabaseAdmin
+      .from('outreach_log')
+      .select('*, firms(*)')
+      .eq('to_email', bouncedEmail)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!outreach?.firm_id) continue
+
+    const firm = outreach.firms as any
+
+    // Log the bounce in outreach_log
+    await supabaseAdmin.from('outreach_log').insert({
+      firm_id: outreach.firm_id,
+      company_number: outreach.company_number,
+      director_name: outreach.director_name,
+      to_email: bouncedEmail,
+      subject: 'BOUNCED — ' + outreach.subject,
+      body: `Email bounced. Original email to ${bouncedEmail} was not delivered.`,
+      agent_reasoning: 'Automatic bounce detection — will attempt alternative contact',
+      follow_up_number: -1,
+      email_source: 'bounce',
+    })
+
+    // Mark email as bounced and clear the bad email
+    await supabaseAdmin.from('firms').update({
+      outreach_status: 'bounced',
+      contact_email: null,
+      contact_found: false,
+    }).eq('id', outreach.firm_id)
+
+    bounces.push({
+      firmId: outreach.firm_id,
+      firmName: firm?.company_name,
+      companyNumber: outreach.company_number,
+      bouncedEmail,
+      postcode: firm?.postcode,
+      phone: firm?.contact_phone,
+      website: firm?.contact_website,
+      directorName: outreach.director_name,
+      sector: firm?.sector,
+    })
+  }
+
+  return bounces
 }
 
 export async function logReply(params: {
