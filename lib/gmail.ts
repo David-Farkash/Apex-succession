@@ -28,27 +28,34 @@ function buildSignatureHtml(): string {
   `
 }
 
+// Convert plain text to HTML paragraphs.
+// Single newlines inside a paragraph become spaces (so soft wraps don't break sentences).
+// Double newlines separate paragraphs.
 function plainToHtml(text: string): string {
   return text
-    .split('\n\n')
-    .map(p => `<p style="margin: 0 0 16px; line-height: 1.6; color: #0a1f15; font-family: Arial, Helvetica, sans-serif; font-size: 15px;">${p.replace(/\n/g, '<br/>')}</p>`)
+    .split(/\n\s*\n/)
+    .map(p => p.trim().replace(/\s*\n\s*/g, ' '))
+    .filter(p => p.length > 0)
+    .map(p => `<p style="margin: 0 0 16px; line-height: 1.6; color: #0a1f15; font-family: Arial, Helvetica, sans-serif; font-size: 15px;">${p}</p>`)
     .join('')
 }
 
 function makeEmailBody(to: string, subject: string, body: string, fromName: string): string {
   const from = `${fromName} <${process.env.GMAIL_USER}>`
 
+  // Strip any sign-off the agent wrote (we add our own consistently)
+  // and strip any "David Farkash" the agent wrote at the end (signature has it)
   const cleanBody = body
-    .replace(/Kind regards,[\s\S]*$/i, '')
-    .replace(/Best regards,[\s\S]*$/i, '')
-    .replace(/Best,[\s\S]*$/i, '')
-    .replace(/Warm regards,[\s\S]*$/i, '')
-    .replace(/David Farkash[\s\S]*$/i, '')
+    .replace(/\n*(kind regards|best regards|warm regards|best wishes|many thanks|regards|best|sincerely|yours sincerely)[,\s]*\n+[\s\S]*$/i, '')
+    .replace(/\n*david farkash[\s\S]*$/i, '')
     .trim()
+
+  // Always append a consistent sign-off so emails never end abruptly
+  const bodyWithSignoff = `${cleanBody}\n\nKind regards,`
 
   const htmlBody = `
     <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; color: #0a1f15;">
-      ${plainToHtml(cleanBody)}
+      ${plainToHtml(bodyWithSignoff)}
       ${buildSignatureHtml()}
     </div>
   `
