@@ -13,27 +13,21 @@ Would you be open to a 15 to 20 minute call sometime in the next week or two?`
 
 export async function GET(req: NextRequest) {
   const to = req.nextUrl.searchParams.get('to') || 'david@thesuccessiongroup.co.uk'
+  const sender = req.nextUrl.searchParams.get('sender') || 'david'
+
+  const isZack = sender === 'zack'
+  const fromName = isZack ? 'Zack' : 'David Farkash'
+  const fromEmail = isZack
+    ? (process.env.GMAIL_USER_ZACK || process.env.GMAIL_USER!)
+    : process.env.GMAIL_USER!
 
   const result = await sendEmail({
     to,
-    subject: 'Email formatting test',
+    subject: `Email formatting test (${sender})`,
     body: SAMPLE_BODY,
-    fromName: 'David Farkash',
+    fromName,
+    fromEmail,
   })
 
-  return NextResponse.json(result)
-}
-
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}))
-  const to = body.to || 'david@thesuccessiongroup.co.uk'
-
-  const result = await sendEmail({
-    to,
-    subject: 'Email formatting test',
-    body: SAMPLE_BODY,
-    fromName: 'David Farkash',
-  })
-
-  return NextResponse.json(result)
+  return NextResponse.json({ ...result, sender, fromName, fromEmail })
 }
