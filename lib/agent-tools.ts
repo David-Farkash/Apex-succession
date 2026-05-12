@@ -81,7 +81,6 @@ export async function sendOutreachEmail(params: {
   followUpNumber: number
   sender?: 'david' | 'zack'
 }) {
-  // Default to david if no sender specified
   const sender = params.sender || 'david'
 
   const senderConfig = {
@@ -308,7 +307,6 @@ export async function logReply(params: {
     status: params.classification === 'warm' ? 'interested' : params.classification === 'cold' ? 'passed' : 'approached',
   }).eq('id', params.firmId)
 
-  // If warm lead, fire Telegram alert immediately
   if (params.classification === 'warm') {
     const { data: firm } = await supabaseAdmin
       .from('firms')
@@ -390,4 +388,25 @@ export async function sendDigest(params: {
   senderBreakdown: { david: number; zack: number }
 }) {
   await sendDailyDigest(params)
+}
+
+export async function isPaused(): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('agent_settings')
+    .select('value')
+    .eq('key', 'paused')
+    .single()
+  return data?.value === true
+}
+
+export async function getActiveDirectives(): Promise<string[]> {
+  const now = new Date().toISOString()
+  const { data } = await supabaseAdmin
+    .from('agent_directives')
+    .select('directive, created_at')
+    .eq('active', true)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
+    .order('created_at', { ascending: false })
+    .limit(10)
+  return (data || []).map(d => d.directive)
 }
