@@ -304,18 +304,44 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date()
-  const ukTime = new Date(now.toLocaleString('en-GB', { timeZone: 'Europe/London' }))
-  const day = ukTime.getDay()
-  const hour = ukTime.getHours()
-  const isWeekday = day >= 1 && day <= 5
-  const isWorkingHours = hour >= 9 && hour < 19
+
+  // Safely extract UK time parts using Intl — never parse locale strings back into Date
+  // (parsing toLocaleString back into Date causes MM/DD vs DD/MM confusion)
+  const ukParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'long',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(now)
+
+  const ukWeekday = ukParts.find(p => p.type === 'weekday')?.value || ''
+  const ukHour = parseInt(ukParts.find(p => p.type === 'hour')?.value || '0')
+
+  const weekdayMap: Record<string, number> = {
+    Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4,
+    Friday: 5, Saturday: 6, Sunday: 0,
+  }
+  const ukDay = weekdayMap[ukWeekday] ?? 0
+  const isWeekday = ukDay >= 1 && ukDay <= 5
+  const isWorkingHours = ukHour >= 9 && ukHour < 19
   const forceRun = req.headers.get('x-force-run') === 'true'
+
+  const ukTimeStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now)
 
   if (!forceRun && (!isWeekday || !isWorkingHours)) {
     return NextResponse.json({
       success: false,
       skipped: true,
-      reason: `Outside operating hours. UK time: ${ukTime.toLocaleString('en-GB')}. Agent runs Mon-Fri 9am-7pm.`,
+      reason: `Outside operating hours. UK time: ${ukTimeStr}. Agent runs Mon-Fri 9am-7pm.`,
     })
   }
 
@@ -330,7 +356,6 @@ export async function POST(req: NextRequest) {
   const stats = { firmsReviewed: 0, emailsSent: 0, repliesProcessed: 0, escalations: 0 }
 
   try {
-    // Fetch active guidance from David via Telegram /guidance command
     const directives = await getActiveDirectives()
     const directivesBlock = directives.length > 0
       ? `\n\nIMPORTANT — Current guidance from David (most recent first). This overrides default behavior for this run:\n${directives.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n`
@@ -339,7 +364,13 @@ export async function POST(req: NextRequest) {
     const messages: Anthropic.MessageParam[] = [
       {
         role: 'user',
-        content: `Today is ${new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.${directivesBlock}
+        content: `Today is ${new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Europe/London',
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }).format(now)}.${directivesBlock}
 
 Run your full daily outreach loop in this exact order:
 
