@@ -3,6 +3,25 @@ import { sendEmail, getUnreadReplies, markAsRead } from './gmail'
 import { lookupDirectorEmail } from './apollo'
 import { sendTelegramMessage, sendWarmLeadAlert, sendDailyDigest } from './telegram'
 
+// London + ~20 mile commuter belt postcode areas
+const LONDON_AREA_POSTCODES = [
+  // Inner London
+  'E', 'EC', 'N', 'NW', 'SE', 'SW', 'W', 'WC',
+  // Greater London
+  'BR', 'CR', 'DA', 'EN', 'HA', 'IG', 'KT', 'RM', 'SM', 'TW', 'UB', 'WD',
+  // ~20 mile commuter belt
+  'AL', 'HP', 'SL', 'GU', 'RH', 'SS', 'CM', 'ME', 'TN', 'LU', 'SG',
+]
+
+function isLondonAreaPostcode(postcode: string | null | undefined): boolean {
+  if (!postcode) return false
+  const cleaned = postcode.trim().toUpperCase().replace(/\s+/g, '')
+  // Extract leading letters (postcode area code)
+  const match = cleaned.match(/^([A-Z]{1,2})/)
+  if (!match) return false
+  return LONDON_AREA_POSTCODES.includes(match[1])
+}
+
 export async function getFirms(options: {
   minScore?: number
   maxScore?: number
@@ -16,7 +35,7 @@ export async function getFirms(options: {
     .select('*')
     .eq('company_status', 'active')
     .order('apex_score', { ascending: false })
-    .limit(options.limit || 20)
+    .limit((options.limit || 20) * 4) // Over-fetch so post-filter still hits target
 
   if (options.minScore) query = query.gte('apex_score', options.minScore)
   if (options.maxScore) query = query.lte('apex_score', options.maxScore)
@@ -32,7 +51,9 @@ export async function getFirms(options: {
   }
 
   const { data } = await query
-  return data || []
+  // Filter to London + 20-mile commuter belt only
+  const londonOnly = (data || []).filter(firm => isLondonAreaPostcode(firm.postcode))
+  return londonOnly.slice(0, options.limit || 20)
 }
 
 export async function getFirmHistory(firmId: string) {
