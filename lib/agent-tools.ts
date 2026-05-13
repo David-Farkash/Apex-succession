@@ -81,6 +81,31 @@ export async function sendOutreachEmail(params: {
   followUpNumber: number
   sender?: 'david' | 'zack'
 }) {
+  // HARD BLOCK: Never send to inferred emails regardless of what the agent says
+  if (params.emailSource === 'inferred') {
+    console.warn(`BLOCKED inferred email to ${params.toEmail} for firm ${params.firmId}`)
+
+    // Auto-flag for phone outreach instead
+    await supabaseAdmin.from('firms').update({
+      phone_flagged: true,
+    }).eq('id', params.firmId)
+
+    await supabaseAdmin.from('outreach_log').insert({
+      firm_id: params.firmId,
+      company_number: params.companyNumber,
+      director_name: params.directorName,
+      to_email: 'BLOCKED',
+      subject: 'BLOCKED: inferred email prevented',
+      body: `Agent attempted to send inferred email to ${params.toEmail}. Blocked by system. Auto-flagged for phone outreach.`,
+      email_source: 'blocked',
+      agent_reasoning: params.reasoning,
+      follow_up_number: params.followUpNumber,
+      sent_by: params.sender || 'david',
+    })
+
+    return { success: false, error: 'Inferred emails are blocked at system level. Firm auto-flagged for phone outreach.' }
+  }
+
   const sender = params.sender || 'david'
 
   const senderConfig = {
