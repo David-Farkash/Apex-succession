@@ -999,10 +999,13 @@ function OutreachTab({ isMobile }: { isMobile: boolean }) {
   useEffect(() => { fetchData() }, [fetchData])
 
   const runAgent = async () => {
-    setAgentRunning(true)
-    setAgentResult(null)
-    try {
-      const res = await fetch('/api/agent/run', { method: 'POST' })
+  setAgentRunning(true)
+  setAgentResult(null)
+  try {
+    const res = await fetch('/api/agent/run', {
+      method: 'POST',
+      headers: { 'x-force-run': 'true' },
+    })
       const json = await res.json()
       if (json.skipped) {
         setAgentResult(`Skipped: ${json.reason}`)
