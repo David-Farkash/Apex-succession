@@ -81,6 +81,25 @@ export async function sendOutreachEmail(params: {
   followUpNumber: number
   sender?: 'david' | 'zack'
 }) {
+  // DEDUPE: Refuse to send the same firm twice in the same 10-minute window
+  // (prevents the agent from accidentally emailing the same firm twice in one run)
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const { data: recentSends } = await supabaseAdmin
+    .from('outreach_log')
+    .select('id')
+    .eq('firm_id', params.firmId)
+    .gt('created_at', tenMinAgo)
+    .not('email_source', 'in', '(flag,blocked,bounce)')
+    .limit(1)
+
+  if (recentSends && recentSends.length > 0) {
+    console.warn(`DEDUPE BLOCK: Firm ${params.firmId} already emailed in last 10 min`)
+    return {
+      success: false,
+      error: 'Duplicate send blocked — firm was already contacted in this run. Move on to a different firm.',
+    }
+  }
+
   // HARD BLOCK: Never send to inferred emails regardless of what the agent says
   if (params.emailSource === 'inferred') {
     console.warn(`BLOCKED inferred email to ${params.toEmail} for firm ${params.firmId}`)
